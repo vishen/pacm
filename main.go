@@ -6,10 +6,11 @@ import (
 	"debug/elf"
 	"debug/macho"
 	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -33,7 +34,7 @@ var (
 
 	outPath = "./extracted"
 	// TODO: Come up with a better alternative
-	filePermissions = 0644
+	filePermissions = os.FileMode(0777)
 )
 
 // TODO(vishen): Should handle zip at least
@@ -81,8 +82,11 @@ func main() {
 		if !isExec {
 			return nil
 		}
-		fmt.Println(path, isExec)
-		return ioutil.WriteFile(path, bytes.NewReader(b), filePermissions)
+		// TODO: This should prefix executable with a name or something else
+		outFilename := filepath.Join(outPath, f.Name())
+		// TODO: This won't override files that already exist, need someway to
+		// change that. Likely using a different function.
+		return ioutil.WriteFile(outFilename, b, f.Mode())
 	})
 	if err != nil {
 		log.Fatal(err)
