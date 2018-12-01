@@ -30,6 +30,10 @@ var (
 		"*/*",
 		"*/bin/*",
 	}
+
+	outPath = "./extracted"
+	// TODO: Come up with a better alternative
+	filePermissions = 0644
 )
 
 // TODO(vishen): Should handle zip at least
@@ -68,26 +72,6 @@ func main() {
 		if err != nil {
 			return nil
 		}
-		/*
-			pathSplit := strings.Split(path, "/")
-			shouldExtract := false
-			for _, wp := range wantedPaths {
-				wpSplit := strings.Split(wp, "/")
-				if len(pathSplit) != len(wpSplit) {
-					continue
-				}
-
-				shouldExtract = true
-				for i, wpi := range wpSplit {
-					if wpi != "*" && wpi != pathSplit[i] {
-						shouldExtract = false
-						break
-					}
-				}
-				if shouldExtract {
-					break
-				}
-			}*/
 
 		if !shouldExtract(path) {
 			return nil
@@ -98,9 +82,11 @@ func main() {
 			return nil
 		}
 		fmt.Println(path, isExec)
-		return nil
+		return ioutil.WriteFile(path, bytes.NewReader(b), filePermissions)
 	})
-	fmt.Println(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func shouldExtract(path string) bool {
