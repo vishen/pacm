@@ -3,14 +3,21 @@ package main
 /*
 	- https://github.com/hashicorp/terraform/releases/tag/v0.11.10
 	- https://github.com/vishen/go-chromecast/releases/download/v0.0.3/go-chromecast_0.0.3_Linux_x86_64.tar.gz
-	- https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
 	- https://dl.google.com/go/go1.11.2.linux-amd64.tar.gz
+
+
+    - https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x68_64.zip
+	- https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
+
+
+    - https://releases.hashicorp.com/terraform/0.11.10/terraform_0.11.10_linux_x68_64.zip
+	- https://releases.hashicorp.com/terraform/0.11.10/terraform_0.11.10_linux_amd64.zip
 */
 
 var (
 	terraform = Recipe{
 		Name:    "terraform",
-		URL:     "https://github.com/hashicorp/terraform/releases/tag/v{{ .Recipe.Version }}",
+		URL:     "https://releases.hashicorp.com/terraform/{{ .Recipe.Version }}/terraform_{{ .Recipe.Version}}_{{ .Config.OS }}_{{ .Config.ArchAlt }}.zip",
 		Version: "0.11.10",
 	}
 

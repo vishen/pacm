@@ -14,6 +14,7 @@ type Recipe struct {
 }
 
 type Config struct {
-	Arch string
-	OS   string
+	Arch    string
+	ArchAlt string
+	OS      string
 }

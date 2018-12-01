@@ -2,21 +2,21 @@ package main
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"debug/elf"
 	"debug/macho"
-	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 
-	"github.com/mholt/archiver"
+	"github.com/h2non/filetype"
 )
 
 /*
@@ -49,8 +49,9 @@ func archivePath(header interface{}) string {
 
 func main() {
 	config := Config{
-		Arch: "x68_64",
-		OS:   "linux",
+		Arch:    "x86_64",
+		ArchAlt: "amd64",
+		OS:      "linux",
 	}
 
 	recipes := []Recipe{terraform, protoc}
@@ -61,12 +62,61 @@ func main() {
 
 func createRecipes(config Config, recipes []Recipe) error {
 	for _, r := range recipes {
-		//resp, err := http.Get(url)
 		url, err := generateURL(config, r)
 		if err != nil {
 			return err
 		}
-		fmt.Println(url)
+		log.Printf("Getting %s...\n", url)
+		resp, err := http.Get(url)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		fmt.Printf("%s -> %s -- reading body\n", url, resp.Status)
+
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Getting archive type\n")
+		typ, err := filetype.Archive(b)
+		if err != nil {
+			return err
+		}
+		log.Printf("Found archive type=%#v\n", typ)
+
+		buf := bytes.NewReader(b)
+		if typ.Extension == "zip" {
+			log.Printf("Zip reader\n")
+			rdr, err := zip.NewReader(buf, resp.ContentLength)
+			if err != nil {
+				return err
+			}
+			log.Printf("Zip files\n")
+			for _, f := range rdr.File {
+				fmt.Printf("Contents of %s\n", f.Name)
+				if !shouldExtract(f.Name) {
+					continue
+				}
+				fmt.Println("can extract")
+				rc, err := f.Open()
+				if err != nil {
+					return err
+				}
+				defer rc.Close()
+
+				b, err := ioutil.ReadAll(rc)
+				if err != nil {
+					return err
+				}
+				isExec := isExecutable(bytes.NewReader(b))
+				if !isExec {
+					continue
+				}
+				fmt.Println("Is executable")
+			}
+		}
 	}
 	return nil
 }
@@ -91,14 +141,12 @@ func generateURL(config Config, recipe Recipe) (string, error) {
 	return buf.String(), nil
 }
 
-func main2() {
-	flag.Parse()
-	args := flag.Args()
-	if len(args) != 1 {
-		log.Fatal("one argument is required")
+/*
+func extractFromArchive(r io.ReaderCloser) error {
+	unarc, err := archiver.ByHeader(r)
+	if err != nil {
+		return err
 	}
-	filename := args[0]
-
 	f, err := archiver.ByExtension(filename)
 	if err != nil {
 		log.Fatal(err)
@@ -106,6 +154,11 @@ func main2() {
 	w, ok := f.(archiver.Walker)
 	if !ok {
 		log.Fatalf("unknown archive type for %q", filename)
+	}
+
+	w, ok := unarc.(archiver.Walker)
+	if !ok {
+		return fmt.Errorf("unable to type convert to archiver.Walker")
 	}
 
 	err = w.Walk(filename, func(f archiver.File) error {
@@ -144,6 +197,7 @@ func main2() {
 		log.Fatal(err)
 	}
 }
+*/
 
 func shouldExtract(path string) bool {
 	// TODO: There is likely a much better way to do this.
