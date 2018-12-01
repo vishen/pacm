@@ -6,6 +6,8 @@ import (
 	"debug/elf"
 	"debug/macho"
 	"flag"
+	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
@@ -46,6 +48,50 @@ func archivePath(header interface{}) string {
 }
 
 func main() {
+	config := Config{
+		Arch: "x68_64",
+		OS:   "linux",
+	}
+
+	recipes := []Recipe{terraform, protoc}
+	if err := createRecipes(config, recipes); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func createRecipes(config Config, recipes []Recipe) error {
+	for _, r := range recipes {
+		//resp, err := http.Get(url)
+		url, err := generateURL(config, r)
+		if err != nil {
+			return err
+		}
+		fmt.Println(url)
+	}
+	return nil
+}
+
+func generateURL(config Config, recipe Recipe) (string, error) {
+	tmpl, err := template.New("recipe-" + recipe.Name).Parse(recipe.URL)
+	if err != nil {
+		return "", err
+	}
+
+	td := struct {
+		Recipe Recipe
+		Config Config
+	}{
+		Recipe: recipe,
+		Config: config,
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, td); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func main2() {
 	flag.Parse()
 	args := flag.Args()
 	if len(args) != 1 {
@@ -82,11 +128,17 @@ func main() {
 		if !isExec {
 			return nil
 		}
+
 		// TODO: This should prefix executable with a name or something else
 		outFilename := filepath.Join(outPath, f.Name())
-		// TODO: This won't override files that already exist, need someway to
+
 		// change that. Likely using a different function.
-		return ioutil.WriteFile(outFilename, b, f.Mode())
+		// This will overwrite the file, but not the file permissions, so we
+		// need to manually set them afterwars.
+		if err := ioutil.WriteFile(outFilename, b, f.Mode()); err != nil {
+			return err
+		}
+		return os.Chmod(outFilename, f.Mode())
 	})
 	if err != nil {
 		log.Fatal(err)
