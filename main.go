@@ -59,7 +59,7 @@ func createRecipes(config *Config) error {
 		defer resp.Body.Close()
 		fmt.Printf("%s -> %s -- reading body\n", url, resp.Status)
 
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			continue
 		}
 

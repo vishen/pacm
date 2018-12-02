@@ -1,3 +1,18 @@
 - pathsToCheck:
     - change name?
     - should be overrideable in each recipe
+- run abitary shell commands on archived file after it has downloaded
+    - Need to know the files before hand because currently everything is done in-memory and only binaries are written to disk
+    - protoc could move the include directories to relevated locations
+    - should have string interpolation
+- Concurrency when downloading packages
+- logging
+- make it a cli program
+- should be able ot take arbitrary pacman config file
+- cli status / version
+    - shows currently installed locations and version
+- cli update <recipe> <version>
+    - this should update the pacmconfig and re-run
+- cli add <recipe> <full_url>
+    - this could extract the relevant version, arch and os infor from the url and create a new recipe?
+    - not sure if possible..?
