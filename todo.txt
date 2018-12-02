@@ -9,10 +9,22 @@
 - logging
 - make it a cli program
 - should be able ot take arbitrary pacman config file
+- should be able to version a recipe better
 - cli status / version
     - shows currently installed locations and version
 - cli update <recipe> <version>
-    - this should update the pacmconfig and re-run
+    - this should add the pacmconfig and re-run
+- cli rollback <recipe> <version>
+    - rollback to previous version?
 - cli add <recipe> <full_url>
     - this could extract the relevant version, arch and os infor from the url and create a new recipe?
     - not sure if possible..?
+
+# This seems a better way to handle this recipes and versions
+- maybe split recipes and versions apart:
+    - A recipe can be the url
+    - a version can be the version, os and arch.
+    - Recipes can be a [recipe <name>] in the pacmconfig or alternatively load from somewhere on disk?
+    - a section in pacmconfig can use recipe=<name> to use that recipe
+
+- validate that the arch and os are the same as GOOS and GOARCH

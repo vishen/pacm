@@ -7,6 +7,12 @@ version=1.11.2
 url=https://dl.google.com/go/go{{ .Recipe.Version }}.{{ .Recipe.OS }}-{{ .Recipe.Arch }}.tar.gz
 checksum_sha256=1dfe664fa3d8ad714bbd15a36627992effd150ddabd7523931f077b3926d736d
 
+[go1.10]
+os=linux
+arch=amd64
+version=1.10.5
+url=https://dl.google.com/go/go{{ .Recipe.Version }}.{{ .Recipe.OS }}-{{ .Recipe.Arch }}.tar.gz
+
 [terraform]
 os=linux
 arch=amd64
