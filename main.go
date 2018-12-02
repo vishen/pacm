@@ -46,8 +46,11 @@ func main() {
 }
 
 func createRecipes(config *Config) error {
-	for _, r := range config.Recipes {
-		url, err := generateURL(config, r)
+	currentArch := runtime.GOARCH
+	currentOS := runtime.GOOS
+	for _, p := range config.Packages {
+		r := config.RecipeForPackage(p)
+		url, err := generateURL(currentArch, currentOS, p, r)
 		if err != nil {
 			return err
 		}
@@ -108,7 +111,7 @@ func createRecipes(config *Config) error {
 				if !isExec {
 					continue
 				}
-				if err := writeFile(config, r, f.FileInfo(), b); err != nil {
+				if err := writeFile(config, p, f.FileInfo(), b); err != nil {
 					return err
 				}
 			}
@@ -138,7 +141,7 @@ func createRecipes(config *Config) error {
 				if !isExec {
 					continue
 				}
-				if err := writeFile(config, r, hdr.FileInfo(), b); err != nil {
+				if err := writeFile(config, p, hdr.FileInfo(), b); err != nil {
 					return err
 				}
 			}
@@ -168,9 +171,9 @@ func verifyChecksum(r Recipe, checksumBytes []byte) (bool, error) {
 	return checksum == r.Checksum, nil
 }
 
-func writeFile(c *Config, r Recipe, fi os.FileInfo, data []byte) error {
+func writeFile(c *Config, p Package, fi os.FileInfo, data []byte) error {
 	outPath := c.OutputDir
-	filename := r.FilenameWithVersion(fi.Name())
+	filename := p.FilenameWithVersion(fi.Name())
 	outFilename := filepath.Join(outPath, filename)
 	log.Printf("writing to %s...\n", outFilename)
 	// This will overwrite the file, but not the file permissions, so we
@@ -181,6 +184,10 @@ func writeFile(c *Config, r Recipe, fi os.FileInfo, data []byte) error {
 	if err := os.Chmod(outFilename, fi.Mode()); err != nil {
 		return err
 	}
+	// If this is not the active package, then don't symlink the pretty name.
+	if !p.Active {
+		return nil
+	}
 	symlinkPath := filepath.Join(outPath, fi.Name())
 	os.Remove(symlinkPath)
 	// I don't quite understand why it is like this...? The cwd is
@@ -189,18 +196,21 @@ func writeFile(c *Config, r Recipe, fi os.FileInfo, data []byte) error {
 	return os.Symlink(filename, symlinkPath)
 }
 
-func generateURL(config *Config, recipe Recipe) (string, error) {
-	tmpl, err := template.New("recipe-" + recipe.Name).Parse(recipe.URL)
+func generateURL(arch, os string, p Package, r Recipe) (string, error) {
+	tmpl, err := template.New("recipe-" + r.Name).Parse(r.URL)
 	if err != nil {
 		return "", err
 	}
 
+	arch, os = r.MappedArchOS(arch, os)
 	td := struct {
-		Recipe Recipe
-		Config Config
+		Version string
+		OS      string
+		Arch    string
 	}{
-		Recipe: recipe,
-		Config: *config,
+		Version: p.Version,
+		OS:      os,
+		Arch:    arch,
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, td); err != nil {
@@ -284,6 +294,7 @@ func isExecutable(r io.ReaderAt) bool {
 			return e.Machine == elf.EM_PPC64
 		}
 	default:
+		// TODO: This should return an error about a not-supported architecture.
 		return false
 	}
 	return false

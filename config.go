@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/knq/ini"
+	"github.com/knq/ini/parser"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -13,35 +15,69 @@ var possibleConfigPaths = []string{
 	"~/pacmconfig",
 }
 
-type Recipe struct {
-	Arch           string
-	OS             string
-	Name           string
-	ExecutableName string
-	URL            string
+type Package struct {
+	RecipeName     string
+	Active         bool
 	Version        string
-	Checksum       string
-	ChecksumType   string
+	ExecutableName string
 }
 
-func (r Recipe) LinkName() string {
-	if r.ExecutableName != "" {
-		return r.ExecutableName
+func (p Package) FilenameWithVersion(filename string) string {
+	// TODO: Make this configuration by config
+	return fmt.Sprintf("%s_%s", filename, p.Version)
+}
+
+type Recipe struct {
+	Name            string
+	URL             string
+	AvailableArchOS map[string]string
+
+	// DEPRECATED
+	ChecksumType string
+	Checksum     string
+}
+
+func (r Recipe) MappedArchOS(arch, os string) (string, string) {
+	// TODO: Fix the ordering, or better yet, make these concrete types.
+	if m := r.AvailableArchOS[os+"_"+arch]; m != "" {
+		mSplit := strings.Split(m, ":")
+		return mSplit[1], mSplit[0]
 	}
-	return r.Name
-}
-
-func (r Recipe) FilenameWithVersion(filename string) string {
-	// TODO: This should be configurable
-	return fmt.Sprintf("%s-%s", filename, r.Version)
+	return arch, os
 }
 
 type Config struct {
-	Arch      string
-	OS        string
 	OutputDir string
 
-	Recipes []Recipe
+	Recipes  []Recipe
+	Packages []Package
+}
+
+func (c Config) RecipeForPackage(p Package) Recipe {
+	for _, r := range c.Recipes {
+		if r.Name == p.RecipeName {
+			return r
+		}
+	}
+	panic(fmt.Sprintf("no recipe %q found for package %s-%s", p.RecipeName, p.RecipeName, p.Version))
+}
+
+func (c Config) Validate() error {
+	for i := 0; i < len(c.Packages); i++ {
+		p := c.Packages[i]
+		foundRecipe := false
+		for j := 0; j < len(c.Recipes); j++ {
+			r := c.Recipes[j]
+			if p.RecipeName == r.Name {
+				foundRecipe = true
+				break
+			}
+		}
+		if !foundRecipe {
+			return fmt.Errorf("recipe with name %q does not exist", p.RecipeName)
+		}
+	}
+	return nil
 }
 
 func Load(configPath string) (*Config, error) {
@@ -60,7 +96,6 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	for _, cp := range configPaths {
-		fmt.Println(cp)
 		reader, err := os.Open(cp)
 		if err != nil {
 			continue
@@ -70,63 +105,123 @@ func Load(configPath string) (*Config, error) {
 		if err != nil {
 			continue
 		}
-		config := Config{}
-		// It is possible for their to be a global section which is just
-		// for 'config' variables.
-		//recipes := make([]Recipe, len(f.AllSections())-1, len(f.AllSections()))
-		recipes := []Recipe{}
+		config := &Config{
+			Recipes:  []Recipe{},
+			Packages: []Package{},
+		}
 		for _, s := range f.AllSections() {
-			// The global section
-			if s.Name() == "" {
-				keys := s.RawKeys()
-				for _, k := range keys {
-					v := s.GetRaw(k)
-					switch k {
-					case "dir":
-						config.OutputDir = v
-					default:
-						// TODO(vishen): Add these as extra keyvalues on the
-						// recipe that can be access somehow from go templates.
-						// For now just return an error
-						return nil, fmt.Errorf("unexpected key %q in global section", k)
-					}
+			n := s.Name()
+			switch {
+			case n == "":
+				if err := handleGlobal(s, config); err != nil {
+					return nil, err
 				}
 				continue
-			}
-			r := Recipe{Name: s.Name()}
-			keys := s.RawKeys()
-			for _, k := range keys {
-				v := s.GetRaw(k)
-				switch k {
-				case "os":
-					r.OS = v
-				case "arch":
-					r.Arch = v
-				case "version":
-					r.Version = v
-				case "url":
-					r.URL = v
-				case "checksum_md5":
-					r.ChecksumType = "md5"
-					r.Checksum = v
-				case "checksum_sha1":
-					r.ChecksumType = "sha1"
-					r.Checksum = v
-				case "checksum_sha256":
-					r.ChecksumType = "sha256"
-					r.Checksum = v
-				default:
-					// TODO(vishen): Add these as extra keyvalues on the
-					// recipe that can be access somehow from go templates.
-					// For now just return an error
-					return nil, fmt.Errorf("unexpected key %q in %s section", k, r.Name)
+			case strings.HasPrefix(n, "recipe "):
+				if err := handleRecipe(s, config); err != nil {
+					return nil, err
+				}
+			case strings.HasPrefix(n, "checksum "):
+				// TODO: Handle checksums
+			default:
+				if err := handlePackage(s, config); err != nil {
+					return nil, err
 				}
 			}
-			recipes = append(recipes, r)
 		}
-		config.Recipes = recipes
-		// TODO(vishen): Validate the config and recipes.
-		return &config, nil
+		if err := config.Validate(); err != nil {
+			return nil, err
+		}
+		return config, nil
 	}
 	return nil, fmt.Errorf("did not find any pacmconfig")
+}
+
+func handleGlobal(section *parser.Section, config *Config) error {
+	keys := section.RawKeys()
+	for _, k := range keys {
+		v := section.GetRaw(k)
+		switch k {
+		case "dir":
+			config.OutputDir = v
+		default:
+			return fmt.Errorf("unexpected key %q in global section", k)
+		}
+	}
+	return nil
+}
+
+func handleRecipe(section *parser.Section, config *Config) error {
+	name := strings.Replace(section.Name(), "recipe ", "", 1)
+	name = strings.TrimSpace(name)
+	r := Recipe{
+		Name:            name,
+		AvailableArchOS: map[string]string{},
+	}
+	for _, k := range section.RawKeys() {
+		v := section.GetRaw(k)
+		switch k {
+		case "url":
+			r.URL = v
+		default:
+			if isValidOSArchPair(k) {
+				r.AvailableArchOS[k] = v
+			} else {
+				return fmt.Errorf("%q is an unhandled arch and os", k)
+			}
+		}
+	}
+	config.Recipes = append(config.Recipes, r)
+	return nil
+}
+
+func handlePackage(section *parser.Section, config *Config) error {
+	n := section.Name()
+	nameAndVersion := strings.Split(n, " ")
+	if len(nameAndVersion) != 2 {
+		return fmt.Errorf("was expecting a recipe name and version: [<recipe> <version>], recieved [%q]", n)
+	}
+	p := Package{
+		RecipeName: nameAndVersion[0],
+		Version:    nameAndVersion[1],
+	}
+	for _, k := range section.RawKeys() {
+		v := section.GetRaw(k)
+		switch k {
+		case "active":
+			p.Active = true
+		case "executable":
+			p.ExecutableName = v
+		default:
+			return fmt.Errorf("unexpected key %q in [%s]", k, n)
+		}
+	}
+	config.Packages = append(config.Packages, p)
+	return nil
+}
+
+func isValidOSArchPair(value string) bool {
+	// TODO: Is this the best way to split the <os>_<arch> with a '_'??
+	osAndArch := strings.Split(value, "_")
+	if len(osAndArch) != 2 {
+		return false
+	}
+	os := osAndArch[0]
+	arch := osAndArch[1]
+
+	switch arch {
+	case "386", "amd64", "arm", "arm64", "ppc64":
+		// Expected architectures
+	default:
+		return false
+	}
+
+	switch os {
+	case "darwin", "linux", "dragonfly", "freebsd", "openbsd", "solaris", "netbsd":
+		// Expected os
+	default:
+		return false
+	}
+
+	return true
 }

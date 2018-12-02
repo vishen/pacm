@@ -1,28 +1,47 @@
-dir=/home/jonathan/src/bin2
+dir=./generated
 
-[go]
-os=linux
-arch=amd64
-version=1.11.2
-url=https://dl.google.com/go/go{{ .Recipe.Version }}.{{ .Recipe.OS }}-{{ .Recipe.Arch }}.tar.gz
-checksum_sha256=1dfe664fa3d8ad714bbd15a36627992effd150ddabd7523931f077b3926d736d
+[terraform 0.11.10]
+active=true
 
-[go1.10]
-os=linux
-arch=amd64
-version=1.10.5
-url=https://dl.google.com/go/go{{ .Recipe.Version }}.{{ .Recipe.OS }}-{{ .Recipe.Arch }}.tar.gz
+[terraform 0.11.9]
 
-[terraform]
-os=linux
-arch=amd64
-version=0.11.10
-url=https://releases.hashicorp.com/terraform/{{ .Recipe.Version }}/terraform_{{ .Recipe.Version}}_{{ .Recipe.OS }}_{{ .Recipe.Arch }}.zip
-checksum_sha256=43543a0e56e31b0952ea3623521917e060f2718ab06fe2b2d506cfaa14d54527
+[protoc 3.6.1]
+active=true
 
-[protoc]
-os=linux
-arch=x86_64
-version=3.6.1
-url=https://github.com/protocolbuffers/protobuf/releases/download/v{{ .Recipe.Version }}/protoc-{{ .Recipe.Version }}-{{ .Recipe.OS }}-{{ .Recipe.Arch }}.zip
-checksum_sha256=6003de742ea3fcf703cfec1cd4a3380fd143081a2eb0e559065563496af27807
+[protoc 3.5.1]
+executable=protoc_3.5.x
+
+
+[recipe terraform]
+url=https://releases.hashicorp.com/terraform/{{ .Version }}/terraform_{{ .Version}}_{{ .OS }}_{{ .Arch }}.zip
+# Available <os>_<arch>
+linux_amd64
+linux_386
+linux_arm
+darwin_amd64
+freebsd_amd64
+freebsd_386
+freebsd_arm
+openbsd_amd64
+openbsd_386
+openbsd_arm
+solaris_amd64
+
+[checksum terraform 0.11.10]
+linux_amd64=checksum_sha256:43543a0e56e31b0952ea3623521917e060f2718ab06fe2b2d506cfaa14d54527
+
+
+[recipe protoc]
+url=https://github.com/protocolbuffers/protobuf/releases/download/v{{ .Version }}/protoc-{{ .Version }}-{{ .OS }}-{{ .Arch }}.zip
+# Available <os>_<arch> -> <required os>:<required arch>
+linux_amd64=linux:x86_64
+linux_386=linux:x86_32
+linux_arm=linux:aarch_64
+darwin_amd64=osx:x86_64
+darwin_386=osx:x86_32
+
+[checksum protoc 3.6.1]
+linux_amd64=checksum_sha256:6003de742ea3fcf703cfec1cd4a3380fd143081a2eb0e559065563496af27807
+
+[checksum protoc 3.5.1]
+linux_386=checksum_sha256:something

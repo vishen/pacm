@@ -1,15 +1,14 @@
+- Add back in checksums
+- Add built-in recipe packages
+- Add a configurable recipe path for wjem looking for recipes
+- keep a cache of what versions of recipes are installed, and only install new ones if required or forced
 - pathsToCheck:
     - change name?
     - should be overrideable in each recipe
-- run abitary shell commands on archived file after it has downloaded
-    - Need to know the files before hand because currently everything is done in-memory and only binaries are written to disk
-    - protoc could move the include directories to relevated locations
-    - should have string interpolation
 - Concurrency when downloading packages
 - logging
 - make it a cli program
-- should be able ot take arbitrary pacman config file
-- should be able to version a recipe better
+- should be able tt take arbitrary pacman config file
 - cli status / version
     - shows currently installed locations and version
 - cli update <recipe> <version>
@@ -20,11 +19,23 @@
     - this could extract the relevant version, arch and os infor from the url and create a new recipe?
     - not sure if possible..?
 
-# This seems a better way to handle this recipes and versions
-- maybe split recipes and versions apart:
-    - A recipe can be the url
-    - a version can be the version, os and arch.
-    - Recipes can be a [recipe <name>] in the pacmconfig or alternatively load from somewhere on disk?
-    - a section in pacmconfig can use recipe=<name> to use that recipe
+- run abitary shell commands on archived file after it has downloaded
+    - Need to know the files before hand because currently everything is done in-memory and only binaries are written to disk
+    - protoc could move the include directories to relevated locations
+    - should have string interpolation
+    - go you could add the following for each new version if wanted:
+```
+% cat bin/go1.4
+#!/bin/sh
 
-- validate that the arch and os are the same as GOOS and GOARCH
+export GOARCH=amd64
+export GOOS=darwin
+export GOROOT=/home/r/go1.4  # Note! Should be wherever we installed it to.
+export GOBIN=$GOROOT/bin
+
+exec $GOBIN/go "$@"
+%
+
+Then when I want to run Go 1.4 tests, I just say "go1.4 build" instead of "go build".
+``
+
