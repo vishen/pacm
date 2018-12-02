@@ -1,0 +1,3 @@
+- pathsToCheck:
+    - change name?
+    - should be overrideable in each recipe

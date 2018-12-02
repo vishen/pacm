@@ -1,20 +1,132 @@
 package main
 
-/*
-	- https://github.com/hashicorp/terraform/releases/tag/v0.11.10
-	- https://github.com/vishen/go-chromecast/releases/download/v0.0.3/go-chromecast_0.0.3_Linux_x86_64.tar.gz
-	- https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
-	- https://dl.google.com/go/go1.11.2.linux-amd64.tar.gz
-*/
+import (
+	"fmt"
+	"os"
+
+	"github.com/knq/ini"
+	homedir "github.com/mitchellh/go-homedir"
+)
+
+var possibleConfigPaths = []string{
+	"~/.config/pacm/config",
+	"~/pacmconfig",
+}
 
 type Recipe struct {
-	Name    string
-	URL     string
-	Version string
+	Arch           string
+	OS             string
+	Name           string
+	ExecutableName string
+	URL            string
+	Version        string
+	Checksum       string
+	ChecksumType   string
+}
+
+func (r Recipe) LinkName() string {
+	if r.ExecutableName != "" {
+		return r.ExecutableName
+	}
+	return r.Name
+}
+
+func (r Recipe) FilenameWithVersion(filename string) string {
+	// TODO: This should be configurable
+	return fmt.Sprintf("%s-%s", filename, r.Version)
 }
 
 type Config struct {
-	Arch    string
-	ArchAlt string
-	OS      string
+	Arch      string
+	OS        string
+	OutputDir string
+
+	Recipes []Recipe
+}
+
+func Load(configPath string) (*Config, error) {
+	var configPaths []string
+	if configPath != "" {
+		configPaths = []string{configPath}
+	}
+	if configPath == "" {
+		for _, cp := range possibleConfigPaths {
+			configPath, err := homedir.Expand(cp)
+			if err != nil {
+				return nil, err
+			}
+			configPaths = append(configPaths, configPath)
+		}
+	}
+
+	for _, cp := range configPaths {
+		fmt.Println(cp)
+		reader, err := os.Open(cp)
+		if err != nil {
+			continue
+		}
+		defer reader.Close()
+		f, err := ini.Load(reader)
+		if err != nil {
+			continue
+		}
+		config := Config{}
+		// It is possible for their to be a global section which is just
+		// for 'config' variables.
+		//recipes := make([]Recipe, len(f.AllSections())-1, len(f.AllSections()))
+		recipes := []Recipe{}
+		for _, s := range f.AllSections() {
+			// The global section
+			if s.Name() == "" {
+				keys := s.RawKeys()
+				for _, k := range keys {
+					v := s.GetRaw(k)
+					switch k {
+					case "dir":
+						config.OutputDir = v
+					default:
+						// TODO(vishen): Add these as extra keyvalues on the
+						// recipe that can be access somehow from go templates.
+						// For now just return an error
+						return nil, fmt.Errorf("unexpected key %q in global section", k)
+					}
+				}
+				continue
+			}
+			r := Recipe{Name: s.Name()}
+			keys := s.RawKeys()
+			for _, k := range keys {
+				v := s.GetRaw(k)
+				switch k {
+				case "os":
+					r.OS = v
+				case "arch":
+					r.Arch = v
+				case "version":
+					r.Version = v
+				case "url":
+					r.URL = v
+				case "checksum_md5":
+					r.ChecksumType = "md5"
+					r.Checksum = v
+				case "checksum_sha1":
+					r.ChecksumType = "sha1"
+					r.Checksum = v
+				case "checksum_sha256":
+					r.ChecksumType = "sha256"
+					r.Checksum = v
+				default:
+					// TODO(vishen): Add these as extra keyvalues on the
+					// recipe that can be access somehow from go templates.
+					// For now just return an error
+					return nil, fmt.Errorf("unexpected key %q in %s section", k, r.Name)
+				}
+			}
+			recipes = append(recipes, r)
+		}
+		config.Recipes = recipes
+		// TODO(vishen): Validate the config and recipes.
+		return &config, nil
+	}
+	return nil, fmt.Errorf("did not find any pacmconfig")
 }
