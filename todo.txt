@@ -1,20 +1,24 @@
 - Add back in checksums
-- Add built-in recipe packages
-- Add a configurable recipe path for wjem looking for recipes
+- should be able to take arbitrary pacman config file
+
+- Configurable filename format when writing binary files
 - keep a cache of what versions of recipes are installed, and only install new ones if required or forced
+- make it a cli program
+- run abitary shell commands on archived file after it has downloaded
+
+- Add built-in recipe packages
+- Add a configurable recipe path for when looking for recipes
 - pathsToCheck:
     - change name?
     - should be overrideable in each recipe
 - Concurrency when downloading packages
 - logging
-- make it a cli program
-- should be able tt take arbitrary pacman config file
-- cli status / version
+- cli use
+    - Set a package to "active" and symlink the recipe name to that package version
+- cli status
     - shows currently installed locations and version
 - cli update <recipe> <version>
     - this should add the pacmconfig and re-run
-- cli rollback <recipe> <version>
-    - rollback to previous version?
 - cli add <recipe> <full_url>
     - this could extract the relevant version, arch and os infor from the url and create a new recipe?
     - not sure if possible..?

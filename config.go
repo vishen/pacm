@@ -1,29 +1,71 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/knq/ini"
 	"github.com/knq/ini/parser"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
+const cachePath = "~/.config/pacm/cache"
+
 var possibleConfigPaths = []string{
 	"~/.config/pacm/config",
-	"~/pacmconfig",
+	"~/.pacmconfig",
+}
+
+type Cache struct {
+	packagePath string
+	Installed   []Package `json:"installed_packages"`
+}
+
+func LoadCache() (*Cache, error) {
+	var c *Cache
+	cp, err := homedir.Expand(cachePath)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(cp)
+	if err != nil {
+		if file, err = os.Create(cp); err != nil {
+			return err
+		}
+	}
+	if err := json.NewDecoder(file).Decode(c); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (c Cache) WriteToFile() error {
+	cp, err := homedir.Expand(cachePath)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(cp)
+	if err != nil {
+		if file, err = os.Create(cp); err != nil {
+			return err
+		}
+	}
+	if err := json.NewEncoder(file).Encode(c); err != nil {
+		return nil, err
+	}
 }
 
 type Package struct {
-	RecipeName     string
-	Active         bool
-	Version        string
-	ExecutableName string
+	RecipeName     string `json:"recipe"`
+	Active         bool   `json:"active"`
+	Version        string `json:"version"`
+	ExecutableName string `json:"executable_name"`
 }
 
 func (p Package) FilenameWithVersion(filename string) string {
-	// TODO: Make this configuration by config
 	return fmt.Sprintf("%s_%s", filename, p.Version)
 }
 
@@ -32,7 +74,7 @@ type Recipe struct {
 	URL             string
 	AvailableArchOS map[string]string
 
-	// DEPRECATED
+	// NOT YET IMPLEMENTED
 	ChecksumType string
 	Checksum     string
 }
@@ -46,11 +88,19 @@ func (r Recipe) MappedArchOS(arch, os string) (string, string) {
 	return arch, os
 }
 
+type Installed struct {
+	Filename  string
+	ModTime   time.Time
+	Symlinked bool
+}
+
 type Config struct {
 	OutputDir string
 
 	Recipes  []Recipe
 	Packages []Package
+
+	CurrentlyInstalled []Installed
 }
 
 func (c Config) RecipeForPackage(p Package) Recipe {

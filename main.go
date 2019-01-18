@@ -40,15 +40,44 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := createRecipes(config); err != nil {
+	if err := createRecipes(runtime.GOARCH, runtime.GOOS, config); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func createRecipes(config *Config) error {
-	currentArch := runtime.GOARCH
-	currentOS := runtime.GOOS
+func importCurrentlyInstalled(config *Config) error {
+	dir := config.OutputDir
+	fmt.Printf("reading from %s\n", dir)
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("found %d files\n", len(files))
+	config.CurrentlyInstalled = make([]Installed, len(files))
+	for i, f := range files {
+		config.CurrentlyInstalled[i] = Installed{
+			Filename:  f.Name(),
+			ModTime:   f.ModTime(),
+			Symlinked: f.Mode()&os.ModeSymlink == os.ModeSymlink,
+		}
+	}
+	return false
+}
+
+func createRecipes(currentArch, currentOS string, config *Config) error {
+	cache, err := LoadCache()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("CACHE=%#v\n", cache)
+	if err := importCurrentlyInstalled(config); err != nil {
+		return err
+	}
 	for _, p := range config.Packages {
+		// TODO: Do we need to install the package
+
+		// TODO: Do we need to symlink the package
+
 		r := config.RecipeForPackage(p)
 		url, err := generateURL(currentArch, currentOS, p, r)
 		if err != nil {
@@ -184,16 +213,28 @@ func writeFile(c *Config, p Package, fi os.FileInfo, data []byte) error {
 	if err := os.Chmod(outFilename, fi.Mode()); err != nil {
 		return err
 	}
-	// If this is not the active package, then don't symlink the pretty name.
-	if !p.Active {
-		return nil
+	// If this is an active package, then symlink it.
+	if p.Active {
+		symlinkPath := filepath.Join(outPath, fi.Name())
+		os.Remove(symlinkPath)
+		// I don't quite understand why it is like this...? The cwd is
+		// not the 'outPath', so why...
+		// TODO: Will this cause issues on other systems? Test out on mac.
+		if err := os.Symlink(filename, symlinkPath); err != nil {
+			return err
+		}
 	}
-	symlinkPath := filepath.Join(outPath, fi.Name())
-	os.Remove(symlinkPath)
-	// I don't quite understand why it is like this...? The cwd is
-	// not the 'outPath', so why...
-	// TODO: Will this cause issues on other systems? Test out on mac.
-	return os.Symlink(filename, symlinkPath)
+	if p.ExecutableName != "" {
+		symlinkPath := filepath.Join(outPath, p.ExecutableName)
+		os.Remove(symlinkPath)
+		// I don't quite understand why it is like this...? The cwd is
+		// not the 'outPath', so why...
+		// TODO: Will this cause issues on other systems? Test out on mac.
+		if err := os.Symlink(filename, symlinkPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func generateURL(arch, os string, p Package, r Recipe) (string, error) {
