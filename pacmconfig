@@ -11,6 +11,21 @@ dir=./generated
 executable=protoc_3.5.x
 active=true
 
+[kubectl 1.13.0]
+
+[kubectl 1.12.0]
+
+[kubectl 1.11.0]
+
+[kubectl 1.10.0]
+active=true
+
+[recipe kubectl]
+url=https://storage.googleapis.com/kubernetes-release/release/v{{ .Version }}/bin/{{ .OS }}/{{ .Arch }}/kubectl
+binary=true
+binary_name=kubectl
+darwin_amd64
+
 
 [recipe terraform]
 url=https://releases.hashicorp.com/terraform/{{ .Version }}/terraform_{{ .Version}}_{{ .OS }}_{{ .Arch }}.zip

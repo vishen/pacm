@@ -87,31 +87,13 @@ func main() {
 	}
 }
 
-/*
-func importCurrentlyInstalled(config *Config) error {
-	dir := config.OutputDir
-	fmt.Printf("reading from %s\n", dir)
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("found %d files\n", len(files))
-	config.CurrentlyInstalled = make([]Installed, len(files))
-	for i, f := range files {
-		config.CurrentlyInstalled[i] = Installed{
-			Filename:  f.Name(),
-			ModTime:   f.ModTime(),
-			Symlinked: f.Mode()&os.ModeSymlink == os.ModeSymlink,
-		}
-	}
-	return false
-}
-*/
 func createRecipes(currentArch, currentOS string, config *Config) error {
 	cache, err := LoadCache()
 	if err != nil {
 		return err
 	}
+	// TODO: create config.OutputDir if not exists
+	// TODO: remove all files from config.OutputDir
 	for _, p := range config.Packages {
 		r := config.RecipeForPackage(p)
 		var b []byte
@@ -168,6 +150,14 @@ func createRecipes(currentArch, currentOS string, config *Config) error {
 			}
 		}
 
+		if r.IsBinary {
+			// TODO: Make the permissions configurable
+			if err := config.WriteFile(p, r.BinaryName, 0755, b); err != nil {
+				return err
+			}
+			continue
+		}
+
 		log.Printf("Getting archive type\n")
 		typ, err := filetype.Archive(b)
 		if err != nil {
@@ -201,7 +191,8 @@ func createRecipes(currentArch, currentOS string, config *Config) error {
 				if !isExec {
 					continue
 				}
-				if err := config.WriteFile(p, f.FileInfo(), b); err != nil {
+				fi := f.FileInfo()
+				if err := config.WriteFile(p, fi.Name(), fi.Mode(), b); err != nil {
 					return err
 				}
 			}
@@ -231,7 +222,8 @@ func createRecipes(currentArch, currentOS string, config *Config) error {
 				if !isExec {
 					continue
 				}
-				if err := config.WriteFile(p, hdr.FileInfo(), b); err != nil {
+				fi := hdr.FileInfo()
+				if err := config.WriteFile(p, fi.Name(), fi.Mode(), b); err != nil {
 					return err
 				}
 			}

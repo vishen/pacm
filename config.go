@@ -68,8 +68,13 @@ func (p Package) FilenameWithVersion(filename string) string {
 }
 
 type Recipe struct {
-	Name            string
-	URL             string
+	Name string
+	URL  string
+
+	// TODO: Consolidate these two fields? One implies the other.
+	IsBinary   bool
+	BinaryName string
+
 	AvailableArchOS map[string]string
 
 	// NOT YET IMPLEMENTED
@@ -146,23 +151,23 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func (c *Config) WriteFile(p *Package, fi os.FileInfo, data []byte) error {
+func (c *Config) WriteFile(p *Package, filename_ string, mode os.FileMode, data []byte) error {
 	outPath := c.OutputDir
-	filename := p.FilenameWithVersion(fi.Name())
+	filename := p.FilenameWithVersion(filename_)
 	// TODO: Delete
 	outFilename := filepath.Join(outPath, filename)
 	log.Printf("writing to %s...\n", outFilename)
 	// This will overwrite the file, but not the file permissions, so we
 	// need to manually set them afterwars.
-	if err := ioutil.WriteFile(outFilename, data, fi.Mode()); err != nil {
+	if err := ioutil.WriteFile(outFilename, data, mode); err != nil {
 		return err
 	}
-	if err := os.Chmod(outFilename, fi.Mode()); err != nil {
+	if err := os.Chmod(outFilename, mode); err != nil {
 		return err
 	}
 	// If this is an active package, then symlink it.
 	if p.Active {
-		symlinkPath := filepath.Join(outPath, fi.Name())
+		symlinkPath := filepath.Join(outPath, filename_)
 		// First remove the symlink path if it exists.
 		os.Remove(symlinkPath)
 		// I don't quite understand why it is like this...? The cwd is
@@ -271,6 +276,10 @@ func handleRecipe(section *parser.Section, config *Config) error {
 		switch k {
 		case "url":
 			r.URL = v
+		case "binary":
+			r.IsBinary = isStringTrue(v)
+		case "binary_name":
+			r.BinaryName = v
 		default:
 			if isValidOSArchPair(k) {
 				r.AvailableArchOS[k] = v
@@ -281,6 +290,14 @@ func handleRecipe(section *parser.Section, config *Config) error {
 	}
 	config.Recipes = append(config.Recipes, r)
 	return nil
+}
+
+func isStringTrue(str string) bool {
+	switch strings.ToLower(str) {
+	case "true", "t", "yes", "y":
+		return true
+	}
+	return false
 }
 
 func handlePackage(section *parser.Section, config *Config) error {
@@ -298,7 +315,7 @@ func handlePackage(section *parser.Section, config *Config) error {
 		v := section.GetRaw(k)
 		switch k {
 		case "active":
-			p.Active = true
+			p.Active = isStringTrue(v)
 		case "executable":
 			p.ExecutableName = v
 		default:
