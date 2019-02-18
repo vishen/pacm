@@ -51,24 +51,10 @@ func main() {
 			fmt.Printf("need <recipe>@<version>'s to make active\n")
 			return
 		}
-		for _, recipeAndPackage := range os.Args[2:] {
-			s := strings.Split(recipeAndPackage, "@")
-			if len(s) != 2 {
-				fmt.Printf("%q needs to be in format <recipe>@<version>", recipeAndPackage)
-				return
-			}
-
-			var pkg *Package
-			for _, p := range config.Packages {
-				if p.RecipeName == s[0] && p.Version == s[1] {
-					pkg = p
-					break
-				}
-			}
-
-			if pkg == nil {
-				fmt.Printf("%q is not a known package, please add to your pacmconfig", recipeAndPackage)
-				return
+		for _, recipeAndVersion := range os.Args[2:] {
+			pkg, err := extractAndCheckRecipeAndVersion(config, recipeAndVersion)
+			if err != nil {
+				log.Fatal(err)
 			}
 			config.MakePackageActive(pkg)
 		}
@@ -79,12 +65,45 @@ func main() {
 	case "env":
 		// TODO: Create a new "shell" and override the PATH to include
 		// the specified packages as the pseudo-active ones.
+		if len(os.Args[2:]) == 0 {
+			fmt.Printf("need <recipe>@<version>'s to make active\n")
+			return
+		}
+		pkgs := []*Package{}
+		for _, recipeAndVersion := range os.Args[2:] {
+			pkg, err := extractAndCheckRecipeAndVersion(config, recipeAndVersion)
+			if err != nil {
+				log.Fatal(err)
+			}
+			pkgs = append(pkgs, pkg)
+		}
+		if err := env(config, pkgs); err != nil {
+			log.Fatal(err)
+		}
 	default:
 		if err := createRecipes(runtime.GOARCH, runtime.GOOS, config); err != nil {
 			log.Fatal(err)
 		}
 
 	}
+}
+
+func extractAndCheckRecipeAndVersion(config *Config, recipeAndVersion string) (*Package, error) {
+	s := strings.Split(recipeAndVersion, "@")
+	if len(s) != 2 {
+		return nil, fmt.Errorf("%q needs to be in format <recipe>@<version>", recipeAndVersion)
+	}
+	var pkg *Package
+	for _, p := range config.Packages {
+		if p.RecipeName == s[0] && p.Version == s[1] {
+			pkg = p
+			break
+		}
+	}
+	if pkg == nil {
+		return nil, fmt.Errorf("%q is not a known package, please add to your pacmconfig", recipeAndVersion)
+	}
+	return pkg, nil
 }
 
 func createRecipes(currentArch, currentOS string, config *Config) error {
