@@ -20,10 +20,19 @@ active=true
 [kubectl 1.10.0]
 active=true
 
+[helm 2.12.3]
+active=true
+
+[recipe helm]
+url=https://storage.googleapis.com/kubernetes-helm/helm-v{{ .Version }}-{{ .OS }}-{{ .Arch }}.tar.gz
+# Available <os>_<arch>
+darwin_amd64
+
 [recipe kubectl]
 url=https://storage.googleapis.com/kubernetes-release/release/v{{ .Version }}/bin/{{ .OS }}/{{ .Arch }}/kubectl
 binary=true
 binary_name=kubectl
+# Available <os>_<arch>
 darwin_amd64
 
 
