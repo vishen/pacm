@@ -40,11 +40,54 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := createRecipes(runtime.GOARCH, runtime.GOOS, config); err != nil {
-		log.Fatal(err)
+
+	var cmd string
+	if len(os.Args) > 1 {
+		cmd = os.Args[1]
+	}
+	switch cmd {
+	case "activate", "use":
+		if len(os.Args[2:]) == 0 {
+			fmt.Printf("need <recipe>@<version>'s to make active\n")
+			return
+		}
+		for _, recipeAndPackage := range os.Args[2:] {
+			s := strings.Split(recipeAndPackage, "@")
+			if len(s) != 2 {
+				fmt.Printf("%q needs to be in format <recipe>@<version>", recipeAndPackage)
+				return
+			}
+
+			var pkg *Package
+			for _, p := range config.Packages {
+				if p.RecipeName == s[0] && p.Version == s[1] {
+					pkg = p
+					break
+				}
+			}
+
+			if pkg == nil {
+				fmt.Printf("%q is not a known package, please add to your pacmconfig", recipeAndPackage)
+				return
+			}
+			config.MakePackageActive(pkg)
+		}
+		// TODO: Should only do the unlinking and linking of packages.
+		if err := createRecipes(runtime.GOARCH, runtime.GOOS, config); err != nil {
+			log.Fatal(err)
+		}
+	case "env":
+		// TODO: Create a new "shell" and override the PATH to include
+		// the specified packages as the pseudo-active ones.
+	default:
+		if err := createRecipes(runtime.GOARCH, runtime.GOOS, config); err != nil {
+			log.Fatal(err)
+		}
+
 	}
 }
 
+/*
 func importCurrentlyInstalled(config *Config) error {
 	dir := config.OutputDir
 	fmt.Printf("reading from %s\n", dir)
@@ -63,48 +106,66 @@ func importCurrentlyInstalled(config *Config) error {
 	}
 	return false
 }
-
+*/
 func createRecipes(currentArch, currentOS string, config *Config) error {
 	cache, err := LoadCache()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("CACHE=%#v\n", cache)
-	if err := importCurrentlyInstalled(config); err != nil {
-		return err
-	}
 	for _, p := range config.Packages {
-		// TODO: Do we need to install the package
-
-		// TODO: Do we need to symlink the package
-
 		r := config.RecipeForPackage(p)
-		url, err := generateURL(currentArch, currentOS, p, r)
-		if err != nil {
-			return err
-		}
-		log.Printf("Getting %s...\n", url)
-		resp, err := http.Get(url)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		fmt.Printf("%s -> %s -- reading body\n", url, resp.Status)
+		var b []byte
 
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			continue
-		}
+		archivePath := fmt.Sprintf("%s_%s_%s-%s", p.RecipeName, p.Version, currentArch, currentOS)
+		// If we have don't an archive on disk.
+		if ok := cache.archives[archivePath]; !ok {
+			url, err := generateURL(currentArch, currentOS, p, r)
+			if err != nil {
+				return err
+			}
+			log.Printf("Getting %s...\n", url)
+			resp, err := http.Get(url)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Printf("%s -> %s -- reading body\n", url, resp.Status)
 
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				continue
+			}
 
-		ok, err := verifyChecksum(r, b)
-		if err != nil {
-			return err
-		} else if !ok {
-			return fmt.Errorf("checksum failed")
+			b, err = ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+
+			ok, err := verifyChecksum(r, b)
+			if err != nil {
+				return err
+			} else if !ok {
+				return fmt.Errorf("checksum failed")
+			}
+
+			// Write the archive to a cache directory
+			if err := cache.WriteArchive(archivePath, b); err != nil {
+				return err
+			}
+		} else {
+			log.Printf("found cached archive %q\n", archivePath)
+			b, err = ioutil.ReadFile(filepath.Join(cache.path, archivePath))
+			if err != nil {
+				return err
+			}
+
+			// NOTE: checksum verified here, and after we read response body;
+			// before we write to disk.
+			ok, err := verifyChecksum(r, b)
+			if err != nil {
+				return err
+			} else if !ok {
+				return fmt.Errorf("checksum failed")
+			}
 		}
 
 		log.Printf("Getting archive type\n")
@@ -117,7 +178,7 @@ func createRecipes(currentArch, currentOS string, config *Config) error {
 		buf := bytes.NewReader(b)
 		if typ.Extension == "zip" {
 			log.Printf("Zip reader\n")
-			rdr, err := zip.NewReader(buf, resp.ContentLength)
+			rdr, err := zip.NewReader(buf, int64(len(b)))
 			if err != nil {
 				return err
 			}
@@ -140,7 +201,7 @@ func createRecipes(currentArch, currentOS string, config *Config) error {
 				if !isExec {
 					continue
 				}
-				if err := writeFile(config, p, f.FileInfo(), b); err != nil {
+				if err := config.WriteFile(p, f.FileInfo(), b); err != nil {
 					return err
 				}
 			}
@@ -170,7 +231,7 @@ func createRecipes(currentArch, currentOS string, config *Config) error {
 				if !isExec {
 					continue
 				}
-				if err := writeFile(config, p, hdr.FileInfo(), b); err != nil {
+				if err := config.WriteFile(p, hdr.FileInfo(), b); err != nil {
 					return err
 				}
 			}
@@ -200,6 +261,7 @@ func verifyChecksum(r Recipe, checksumBytes []byte) (bool, error) {
 	return checksum == r.Checksum, nil
 }
 
+/*
 func writeFile(c *Config, p Package, fi os.FileInfo, data []byte) error {
 	outPath := c.OutputDir
 	filename := p.FilenameWithVersion(fi.Name())
@@ -236,8 +298,10 @@ func writeFile(c *Config, p Package, fi os.FileInfo, data []byte) error {
 	}
 	return nil
 }
+*/
 
-func generateURL(arch, os string, p Package, r Recipe) (string, error) {
+// TODO: move this to Package
+func generateURL(arch, os string, p *Package, r Recipe) (string, error) {
 	tmpl, err := template.New("recipe-" + r.Name).Parse(r.URL)
 	if err != nil {
 		return "", err
@@ -292,6 +356,7 @@ func isExecutable(r io.ReaderAt) bool {
 	case "darwin":
 		m, err := macho.NewFile(r)
 		if err != nil {
+			// TODO: Log errors?
 			return false
 		}
 

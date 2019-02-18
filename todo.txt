@@ -2,7 +2,6 @@
 - should be able to take arbitrary pacman config file
 
 - Configurable filename format when writing binary files
-- keep a cache of what versions of recipes are installed, and only install new ones if required or forced
 - make it a cli program
 - run abitary shell commands on archived file after it has downloaded
 
@@ -43,3 +42,5 @@ exec $GOBIN/go "$@"
 Then when I want to run Go 1.4 tests, I just say "go1.4 build" instead of "go build".
 ``
 
+- Multiple version of Go
+    - https://medium.com/@vCabbage/go-installing-multiple-go-versions-from-source-db5573067c

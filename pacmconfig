@@ -1,15 +1,15 @@
 dir=./generated
 
 [terraform 0.11.10]
-active=true
+	active=true
 
 [terraform 0.11.9]
 
 [protoc 3.6.1]
-active=true
 
 [protoc 3.5.1]
 executable=protoc_3.5.x
+active=true
 
 
 [recipe terraform]

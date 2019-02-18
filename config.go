@@ -1,9 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,49 +18,45 @@ const cachePath = "~/.config/pacm/cache"
 
 var possibleConfigPaths = []string{
 	"~/.config/pacm/config",
-	"~/.pacmconfig",
 }
 
 type Cache struct {
-	packagePath string
-	Installed   []Package `json:"installed_packages"`
+	path string
+
+	// TODO: loop through cache directory and see what archives
+	// are there.
+	archives map[string]bool
 }
 
 func LoadCache() (*Cache, error) {
-	var c *Cache
 	cp, err := homedir.Expand(cachePath)
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.Open(cp)
-	if err != nil {
-		if file, err = os.Create(cp); err != nil {
-			return err
-		}
-	}
-	if err := json.NewDecoder(file).Decode(c); err != nil {
+	if err := os.MkdirAll(cp, 0755); err != nil {
 		return nil, err
 	}
-	return c, nil
+
+	files, err := ioutil.ReadDir(cp)
+	if err != nil {
+		return nil, err
+	}
+
+	archives := make(map[string]bool, len(files))
+	for _, f := range files {
+		archives[f.Name()] = true
+	}
+
+	return &Cache{path: cp, archives: archives}, nil
 }
 
-func (c Cache) WriteToFile() error {
-	cp, err := homedir.Expand(cachePath)
-	if err != nil {
-		return nil, err
-	}
-	file, err := os.Open(cp)
-	if err != nil {
-		if file, err = os.Create(cp); err != nil {
-			return err
-		}
-	}
-	if err := json.NewEncoder(file).Encode(c); err != nil {
-		return nil, err
-	}
+func (c Cache) WriteArchive(filename string, data []byte) error {
+	outPath := filepath.Join(c.path, filename)
+	return ioutil.WriteFile(outPath, data, 0644)
 }
 
 type Package struct {
+	iniSection     *parser.Section
 	RecipeName     string `json:"recipe"`
 	Active         bool   `json:"active"`
 	Version        string `json:"version"`
@@ -95,15 +93,33 @@ type Installed struct {
 }
 
 type Config struct {
+	iniFile  *ini.File
+	filename string
+
 	OutputDir string
 
 	Recipes  []Recipe
-	Packages []Package
+	Packages []*Package
 
 	CurrentlyInstalled []Installed
 }
 
-func (c Config) RecipeForPackage(p Package) Recipe {
+func (c *Config) MakePackageActive(pkg *Package) {
+	for _, p := range c.Packages {
+		if p.RecipeName == pkg.RecipeName {
+			p.Active = true
+			p.iniSection.RemoveKey("active")
+		}
+	}
+	pkg.Active = true
+	pkg.iniSection.SetKey("active", "true")
+	if err := c.iniFile.Write(c.filename); err != nil {
+		log.Fatal(err)
+	}
+
+}
+
+func (c *Config) RecipeForPackage(p *Package) Recipe {
 	for _, r := range c.Recipes {
 		if r.Name == p.RecipeName {
 			return r
@@ -112,7 +128,7 @@ func (c Config) RecipeForPackage(p Package) Recipe {
 	panic(fmt.Sprintf("no recipe %q found for package %s-%s", p.RecipeName, p.RecipeName, p.Version))
 }
 
-func (c Config) Validate() error {
+func (c *Config) Validate() error {
 	for i := 0; i < len(c.Packages); i++ {
 		p := c.Packages[i]
 		foundRecipe := false
@@ -125,6 +141,46 @@ func (c Config) Validate() error {
 		}
 		if !foundRecipe {
 			return fmt.Errorf("recipe with name %q does not exist", p.RecipeName)
+		}
+	}
+	return nil
+}
+
+func (c *Config) WriteFile(p *Package, fi os.FileInfo, data []byte) error {
+	outPath := c.OutputDir
+	filename := p.FilenameWithVersion(fi.Name())
+	// TODO: Delete
+	outFilename := filepath.Join(outPath, filename)
+	log.Printf("writing to %s...\n", outFilename)
+	// This will overwrite the file, but not the file permissions, so we
+	// need to manually set them afterwars.
+	if err := ioutil.WriteFile(outFilename, data, fi.Mode()); err != nil {
+		return err
+	}
+	if err := os.Chmod(outFilename, fi.Mode()); err != nil {
+		return err
+	}
+	// If this is an active package, then symlink it.
+	if p.Active {
+		symlinkPath := filepath.Join(outPath, fi.Name())
+		// First remove the symlink path if it exists.
+		os.Remove(symlinkPath)
+		// I don't quite understand why it is like this...? The cwd is
+		// not the 'outPath', so why...
+		// TODO: Will this cause issues on other systems? Test out on mac.
+		if err := os.Symlink(filename, symlinkPath); err != nil {
+			return err
+		}
+	}
+	if p.ExecutableName != "" {
+		symlinkPath := filepath.Join(outPath, p.ExecutableName)
+		// First remove the symlink path if it exists.
+		os.Remove(symlinkPath)
+		// I don't quite understand why it is like this...? The cwd is
+		// not the 'outPath', so why...
+		// TODO: Will this cause issues on other systems? Test out on mac.
+		if err := os.Symlink(filename, symlinkPath); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -156,8 +212,10 @@ func Load(configPath string) (*Config, error) {
 			continue
 		}
 		config := &Config{
+			iniFile:  f,
+			filename: cp,
 			Recipes:  []Recipe{},
-			Packages: []Package{},
+			Packages: []*Package{},
 		}
 		for _, s := range f.AllSections() {
 			n := s.Name()
@@ -231,7 +289,8 @@ func handlePackage(section *parser.Section, config *Config) error {
 	if len(nameAndVersion) != 2 {
 		return fmt.Errorf("was expecting a recipe name and version: [<recipe> <version>], recieved [%q]", n)
 	}
-	p := Package{
+	p := &Package{
+		iniSection: section,
 		RecipeName: nameAndVersion[0],
 		Version:    nameAndVersion[1],
 	}
