@@ -1,4 +1,4 @@
-package main
+package env
 
 import (
 	"context"
@@ -6,11 +6,12 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/signal"
 	"runtime"
+
+	"github.com/vishen/pacm/config"
 )
 
-func env(config *Config, packages []*Package) error {
+func Env(conf *config.Config, packages []*config.Package) error {
 	binPath, err := ioutil.TempDir("", "pacm")
 	if err != nil {
 		return err
@@ -25,13 +26,13 @@ func env(config *Config, packages []*Package) error {
 	}
 
 	// Set the output dir to be the temp binary path
-	config.OutputDir = binPath
+	conf.OutputDir = binPath
 
 	// Only keep the packages that are being used
 	// TODO: Error if we are already using a recipe of the same name?
-	pkgs := []*Package{}
+	pkgs := []*config.Package{}
 	for _, pkg := range packages {
-		for _, p := range config.Packages {
+		for _, p := range conf.Packages {
 			if p.RecipeName == pkg.RecipeName && p.Version == pkg.Version {
 				pkg.Active = true
 				pkgs = append(pkgs, pkg)
@@ -39,9 +40,9 @@ func env(config *Config, packages []*Package) error {
 			}
 		}
 	}
-	config.Packages = pkgs
+	conf.Packages = pkgs
 
-	if err := createRecipes(runtime.GOARCH, runtime.GOOS, config); err != nil {
+	if err := conf.CreatePackages(runtime.GOARCH, runtime.GOOS); err != nil {
 		return err
 	}
 
@@ -56,9 +57,6 @@ func env(config *Config, packages []*Package) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
 
 	if err := cmd.Start(); err != nil {
 		return err
