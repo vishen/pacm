@@ -67,12 +67,25 @@ func main() {
 		for _, p := range conf.Packages {
 			fmt.Printf("> %s@%s", p.RecipeName, p.Version)
 			if p.Active {
-				fmt.Printf(", active")
+				fmt.Printf(" [ACTIVE]")
 			}
 			if p.ExecutableName != "" {
-				fmt.Printf(", executable_name=%s", p.ExecutableName)
+				fmt.Printf(" executable_name=%s", p.ExecutableName)
 			}
 			fmt.Println()
+			// TODO: This doesn't actually show the binaries installed
+			// on disk.
+			foundBinaries := false
+			for _, i := range conf.CurrentlyInstalled {
+				if !strings.Contains(i.SymlinkAbsolutePath, fmt.Sprintf("_pacm/%s_%s", p.RecipeName, p.Version)) {
+					continue
+				}
+				foundBinaries = true
+				fmt.Printf("  - %s (%s)\n", i.AbsolutePath, i.ModTime)
+			}
+			if !foundBinaries {
+				fmt.Printf("  - error: missing binary files on disk...\n")
+			}
 		}
 	default:
 		if err := conf.CreatePackages(runtime.GOARCH, runtime.GOOS); err != nil {

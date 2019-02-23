@@ -73,6 +73,9 @@ func Load(path string) (*Config, error) {
 			}
 		}
 	}
+	if err := config.populateCurrentlyInstalled(); err != nil {
+		return nil, err
+	}
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -150,9 +153,10 @@ func (c *Config) handlePackage(section *parser.Section) error {
 }
 
 type Installed struct {
-	Filename string
-	ModTime  time.Time
-	Symlink  string
+	Filename            string
+	AbsolutePath        string
+	SymlinkAbsolutePath string
+	ModTime             time.Time
 }
 
 type Config struct {
@@ -164,7 +168,6 @@ type Config struct {
 	Recipes  []Recipe
 	Packages []*Package
 
-	// TODO: Fill out
 	CurrentlyInstalled []Installed
 }
 
@@ -212,10 +215,25 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, data []byte) error {
+	// TODO: Clean this up!!!!!
+	// TODO: Clean this up!!!!!
+	// TODO: Clean this up!!!!!
+	// TODO: Clean this up!!!!!
+	// TODO: Clean this up!!!!!
+	// TODO: Clean this up!!!!!
+	// TODO: Clean this up!!!!!
+	// TODO: Clean this up!!!!!
 	filenameWithVersion := p.FilenameWithVersion(filename)
-	outPath := filepath.Join(c.OutputDir, filenameWithVersion)
+	filenameWithVersionAndRecipe := fmt.Sprintf("%s_%s_%s", p.RecipeName, p.Version, filename)
+	path := filepath.Join(c.OutputDir, "_pacm")
+	// TODO: Move this to somewhere more useful.
+	os.MkdirAll(path, 0755)
 
-	log.Printf("writing to %s\n", outPath)
+	outPath := filepath.Join(path, filenameWithVersionAndRecipe)
+	// Need to symlink absolute path for Macos, possibly the same for linux?
+	outPath, _ = filepath.Abs(outPath)
+
+	log.Printf("writing to %s (filenameWithVersion=%s)\n", outPath, filenameWithVersion)
 
 	// This will overwrite the file, but not the file permissions, so we
 	// need to manually set them afterwards.
@@ -226,13 +244,17 @@ func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, dat
 		return err
 	}
 
+	if err := c.SymlinkFile(outPath, filenameWithVersion); err != nil {
+		return err
+	}
+
 	if p.Active {
-		if err := c.SymlinkFile(filenameWithVersion, filename); err != nil {
+		if err := c.SymlinkFile(outPath, filename); err != nil {
 			return err
 		}
 	}
 	if p.ExecutableName != "" {
-		if err := c.SymlinkFile(filenameWithVersion, p.ExecutableName); err != nil {
+		if err := c.SymlinkFile(outPath, p.ExecutableName); err != nil {
 			return err
 		}
 	}
@@ -240,9 +262,13 @@ func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, dat
 }
 
 func (c *Config) SymlinkFile(symlink, filename string) error {
-	symlinkPath := filepath.Join(c.OutputDir, symlink)
+	// TODO: Cleanup
+	// symlinkPath := filepath.Join(c.OutputDir, symlink)
+	symlinkPath := symlink
+	// TODO: Cleanup
 	filePath := filepath.Join(c.OutputDir, filename)
 	os.Remove(filePath)
+	// OldName, NewName
 	if err := os.Symlink(symlinkPath, filePath); err != nil {
 		return err
 	}
@@ -377,11 +403,13 @@ func (c *Config) writeZIP(r Recipe, p *Package, buf io.ReaderAt, bufLen int64) e
 	return nil
 }
 
-/*func (c *Config) populateCurrentlyInstalled() error {
+func (c *Config) populateCurrentlyInstalled() error {
 	if len(c.Packages) == 0 {
 		return fmt.Errorf("no installed packages")
 	}
 
+	// TODO: make this a function or something.
+	//dir := filepath.Join(c.OutputDir, "_pacm")
 	dir := c.OutputDir
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -390,25 +418,30 @@ func (c *Config) writeZIP(r Recipe, p *Package, buf io.ReaderAt, bufLen int64) e
 
 	installs := make([]Installed, 0, len(files))
 	for _, f := range files {
-		name := f.Name()
-		var symlink string
-		if f.Mode()&os.ModeSymlink == os.ModeSymlink {
-			var err error
-			symlink, err = os.Readlink(filepath.Join(dir, name))
-			if err != nil {
-				return nil, err
-			}
+		if f.Mode()&os.ModeSymlink != os.ModeSymlink {
+			continue
 		}
-		if symlink == "" {
-			for _, p := range c.Packages {
-				nameWithoutVersion := strings.Replace(p.Version, "")
-				nameWithoutVersion := strings.Replace(p.Version, "")
-			}
+		name := f.Name()
+		symlink, err := os.Readlink(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+		// TODO: Is there a better way to do this, need to check if the path
+		// the symlink is pointing to one "managed" by pacm.
+		if !strings.Contains(symlink, filepath.Join(c.OutputDir, "_pacm")) {
+			continue
+		}
+		abs, err := filepath.Abs(filepath.Join(dir, name))
+		if err != nil {
+			return err
 		}
 		installs = append(installs, Installed{
-			Filename: name,
-			Symlink:  symlink,
+			Filename:            name,
+			AbsolutePath:        abs,
+			SymlinkAbsolutePath: symlink,
+			ModTime:             f.ModTime(),
 		})
 	}
 	c.CurrentlyInstalled = installs
-}*/
+	return nil
+}
