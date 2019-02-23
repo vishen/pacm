@@ -128,9 +128,9 @@ func (c *Config) handleRecipe(section *parser.Section) error {
 
 func (c *Config) handlePackage(section *parser.Section) error {
 	n := section.Name()
-	nameAndVersion := strings.Split(n, " ")
+	nameAndVersion := strings.Split(n, "@")
 	if len(nameAndVersion) != 2 {
-		return fmt.Errorf("was expecting a recipe name and version: [<recipe> <version>], recieved [%q]", n)
+		return fmt.Errorf("was expecting a recipe name and version: [<recipe>@<version>], recieved [%q]", n)
 	}
 	p := &Package{
 		iniSection: section,

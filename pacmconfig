@@ -1,27 +1,27 @@
 dir=./generated
 
 ; Handle the following: [terraform@0.11.10]
-[terraform 0.11.10]
+[terraform@0.11.10]
 	active=true
 
-[terraform 0.11.9]
+[terraform@0.11.9]
 
-[protoc 3.6.1]
+[protoc@3.6.1]
 
-[protoc 3.5.1]
+[protoc@3.5.1]
     executable=protoc_3.5.x
     active=true
 
-[kubectl 1.13.0]
+[kubectl@1.13.0]
 
-[kubectl 1.12.0]
+[kubectl@1.12.0]
 
-[kubectl 1.11.0]
+[kubectl@1.11.0]
 
-[kubectl 1.10.0]
+[kubectl@1.10.0]
     active=true
 
-[helm 2.12.3]
+[helm@2.12.3]
     active=true
 
 [recipe helm]
