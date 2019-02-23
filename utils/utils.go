@@ -11,7 +11,7 @@ import (
 var (
 	// Default paths to search the archive for when
 	// looking for binaries.
-	wantedPaths = []string{
+	defaultExtractPaths = []string{
 		"*",
 		"bin/*",
 		"*/*",
@@ -53,11 +53,22 @@ func IsValidOSArchPair(value string) bool {
 	return true
 }
 
-func ShouldExtract(path string) bool {
+func ShouldExtract(path string, extractPaths []string) bool {
+	// Filter out any empty paths.
+	shouldExtractPaths := []string{}
+	for _, p := range extractPaths {
+		if p != "" {
+			shouldExtractPaths = append(shouldExtractPaths, p)
+		}
+	}
+	if len(shouldExtractPaths) == 0 {
+		shouldExtractPaths = defaultExtractPaths
+	}
+
 	// TODO: There is likely a much better way to do this.
 	pathSplit := strings.Split(path, "/")
 	shouldExtract := false
-	for _, wp := range wantedPaths {
+	for _, wp := range shouldExtractPaths {
 		wpSplit := strings.Split(wp, "/")
 		if len(pathSplit) != len(wpSplit) {
 			continue

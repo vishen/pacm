@@ -16,6 +16,8 @@ type Recipe struct {
 	IsBinary   bool
 	BinaryName string
 
+	ExtractPaths []string
+
 	AvailableArchOS map[string]string
 
 	// NOT YET IMPLEMENTED

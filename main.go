@@ -38,7 +38,7 @@ func main() {
 		if err := conf.CreatePackages(runtime.GOARCH, runtime.GOOS); err != nil {
 			log.Fatal(err)
 		}
-	case "env":
+	case "env", "shell":
 		// TODO: Create a new "shell" and override the PATH to include
 		// the specified packages as the pseudo-active ones.
 		if len(os.Args[2:]) == 0 {
@@ -55,6 +55,24 @@ func main() {
 		}
 		if err := env.Env(conf, pkgs); err != nil {
 			log.Fatal(err)
+		}
+	case "status":
+		if os.Getenv("PACM_IN_SHELL") == "true" {
+			fmt.Println("Currently in a pacm shell")
+			fmt.Printf("Using the following packages: %s", os.Getenv("PACM_PACKAGES"))
+		} else {
+			fmt.Println("Not in a shell")
+		}
+		fmt.Println("Installed packages:")
+		for _, p := range conf.Packages {
+			fmt.Printf("> %s@%s", p.RecipeName, p.Version)
+			if p.Active {
+				fmt.Printf(", active")
+			}
+			if p.ExecutableName != "" {
+				fmt.Printf(", executable_name=%s", p.ExecutableName)
+			}
+			fmt.Println()
 		}
 	default:
 		if err := conf.CreatePackages(runtime.GOARCH, runtime.GOOS); err != nil {

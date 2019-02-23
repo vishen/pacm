@@ -109,6 +109,8 @@ func (c *Config) handleRecipe(section *parser.Section) error {
 			r.IsBinary = utils.StringBool(v)
 		case "binary_name":
 			r.BinaryName = v
+		case "extract":
+			r.ExtractPaths = strings.Split(v, ",")
 		default:
 			if utils.IsValidOSArchPair(k) {
 				r.AvailableArchOS[k] = v
@@ -148,9 +150,9 @@ func (c *Config) handlePackage(section *parser.Section) error {
 }
 
 type Installed struct {
-	Filename  string
-	ModTime   time.Time
-	Symlinked bool
+	Filename string
+	ModTime  time.Time
+	Symlink  string
 }
 
 type Config struct {
@@ -162,6 +164,7 @@ type Config struct {
 	Recipes  []Recipe
 	Packages []*Package
 
+	// TODO: Fill out
 	CurrentlyInstalled []Installed
 }
 
@@ -239,12 +242,7 @@ func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, dat
 func (c *Config) SymlinkFile(symlink, filename string) error {
 	symlinkPath := filepath.Join(c.OutputDir, symlink)
 	filePath := filepath.Join(c.OutputDir, filename)
-
-	// First remove the symlink path if it exists.
-	os.Remove(symlinkPath)
-
-	// I don't quite understand why it is like this...? The cwd is
-	// not the 'outPath', so why...
+	os.Remove(filePath)
 	if err := os.Symlink(symlinkPath, filePath); err != nil {
 		return err
 	}
@@ -295,21 +293,18 @@ func (c *Config) CreatePackage(currentArch, currentOS string, p *Package, cache 
 		}
 		return nil
 	}
-	log.Printf("Getting archive type\n")
 	typ, err := filetype.Archive(b)
 	if err != nil {
 		return err
 	}
-	log.Printf("Found archive type=%#v\n", typ)
-
 	buf := bytes.NewReader(b)
 	switch t := typ.Extension; t {
 	case "zip":
-		if err := c.writeZIP(p, buf, int64(len(b))); err != nil {
+		if err := c.writeZIP(r, p, buf, int64(len(b))); err != nil {
 			return err
 		}
 	case "gz":
-		if err := c.writeGZ(p, buf); err != nil {
+		if err := c.writeGZ(r, p, buf); err != nil {
 			return err
 		}
 	default:
@@ -318,8 +313,7 @@ func (c *Config) CreatePackage(currentArch, currentOS string, p *Package, cache 
 	return nil
 }
 
-func (c *Config) writeGZ(p *Package, buf io.Reader) error {
-	log.Printf("GZ reader\n")
+func (c *Config) writeGZ(r Recipe, p *Package, buf io.Reader) error {
 	gzr, err := gzip.NewReader(buf)
 	if err != nil {
 		return err
@@ -333,7 +327,7 @@ func (c *Config) writeGZ(p *Package, buf io.Reader) error {
 		if err != nil {
 			return err
 		}
-		if !utils.ShouldExtract(hdr.Name) {
+		if !utils.ShouldExtract(hdr.Name, r.ExtractPaths) {
 			continue
 		}
 		b, err := ioutil.ReadAll(rdr)
@@ -352,15 +346,13 @@ func (c *Config) writeGZ(p *Package, buf io.Reader) error {
 	return nil
 }
 
-func (c *Config) writeZIP(p *Package, buf io.ReaderAt, bufLen int64) error {
-	log.Printf("Zip reader\n")
+func (c *Config) writeZIP(r Recipe, p *Package, buf io.ReaderAt, bufLen int64) error {
 	rdr, err := zip.NewReader(buf, bufLen)
 	if err != nil {
 		return err
 	}
 	for _, f := range rdr.File {
-		log.Printf("Contents of %s\n", f.Name)
-		if !utils.ShouldExtract(f.Name) {
+		if !utils.ShouldExtract(f.Name, r.ExtractPaths) {
 			continue
 		}
 		rc, err := f.Open()
@@ -384,3 +376,39 @@ func (c *Config) writeZIP(p *Package, buf io.ReaderAt, bufLen int64) error {
 	}
 	return nil
 }
+
+/*func (c *Config) populateCurrentlyInstalled() error {
+	if len(c.Packages) == 0 {
+		return fmt.Errorf("no installed packages")
+	}
+
+	dir := c.OutputDir
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	installs := make([]Installed, 0, len(files))
+	for _, f := range files {
+		name := f.Name()
+		var symlink string
+		if f.Mode()&os.ModeSymlink == os.ModeSymlink {
+			var err error
+			symlink, err = os.Readlink(filepath.Join(dir, name))
+			if err != nil {
+				return nil, err
+			}
+		}
+		if symlink == "" {
+			for _, p := range c.Packages {
+				nameWithoutVersion := strings.Replace(p.Version, "")
+				nameWithoutVersion := strings.Replace(p.Version, "")
+			}
+		}
+		installs = append(installs, Installed{
+			Filename: name,
+			Symlink:  symlink,
+		})
+	}
+	c.CurrentlyInstalled = installs
+}*/

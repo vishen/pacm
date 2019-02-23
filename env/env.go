@@ -16,6 +16,7 @@ func Env(conf *config.Config, packages []*config.Package) error {
 	if err != nil {
 		return err
 	}
+	defer os.RemoveAll(binPath)
 	// TODO: Error if this is not set, or maybe fallback
 	// to /bin/sh ??
 	defaultShell := os.Getenv("SHELL")
@@ -31,11 +32,13 @@ func Env(conf *config.Config, packages []*config.Package) error {
 	// Only keep the packages that are being used
 	// TODO: Error if we are already using a recipe of the same name?
 	pkgs := []*config.Package{}
+	var pkgsString string
 	for _, pkg := range packages {
 		for _, p := range conf.Packages {
 			if p.RecipeName == pkg.RecipeName && p.Version == pkg.Version {
 				pkg.Active = true
 				pkgs = append(pkgs, pkg)
+				pkgsString += fmt.Sprintf("%s@%s,", p.RecipeName, p.Version)
 				break
 			}
 		}
@@ -49,7 +52,11 @@ func Env(conf *config.Config, packages []*config.Package) error {
 	envPath := os.Getenv("PATH")
 	envPath = binPath + ":" + envPath
 	environ := os.Environ()
-	environ = append(environ, []string{"PATH=" + envPath, "PACM_IN_SHELL=true"}...)
+	environ = append(environ, []string{
+		"PATH=" + envPath,
+		"PACM_IN_SHELL=true",
+		fmt.Sprintf("PACM_PACKAGES=%s", pkgsString),
+	}...)
 
 	ctx := context.Background()
 	cmd := exec.CommandContext(ctx, defaultShell)
