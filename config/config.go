@@ -173,7 +173,7 @@ type Config struct {
 
 func (c *Config) MakePackageActive(p *Package) error {
 	for _, pkg := range c.Packages {
-		if p.RecipeName == pkg.RecipeName {
+		if p.RecipeName == pkg.RecipeName && p.Version == pkg.Version {
 			pkg.Active = true
 			pkg.iniSection.RemoveKey("active")
 		}
@@ -265,7 +265,6 @@ func (c *Config) SymlinkFile(symlink, filename string) error {
 	// TODO: Cleanup
 	// symlinkPath := filepath.Join(c.OutputDir, symlink)
 	symlinkPath := symlink
-	// TODO: Cleanup
 	filePath := filepath.Join(c.OutputDir, filename)
 	os.Remove(filePath)
 	// OldName, NewName
