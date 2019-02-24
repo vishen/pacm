@@ -1,6 +1,5 @@
 dir=./generated
 
-; Handle the following: [terraform@0.11.10]
 [terraform@0.11.10]
 	active=true
 

@@ -280,6 +280,11 @@ func (c *Config) CreatePackages(currentArch, currentOS string) error {
 	if err != nil {
 		return err
 	}
+	for _, i := range c.CurrentlyInstalled {
+		os.Remove(i.AbsolutePath)
+	}
+	// TODO: clean up, move this filepath join _pacm to a centralised location.
+	os.RemoveAll(filepath.Join(c.OutputDir, "_pacm"))
 	for _, p := range c.Packages {
 		if err := c.CreatePackage(currentArch, currentOS, p, cache); err != nil {
 			return errors.Wrapf(err, "unable to create package %s@%s", p.RecipeName, p.Version)
