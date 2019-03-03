@@ -1,15 +1,13 @@
-dir=./generated
+dir=/home/pentecostjonathan/src/bin/pacmbin
 
 [terraform@0.11.10]
 	active=true
 
-[terraform@0.11.9]
+[vault@1.0.3]
+	active=true
 
 [protoc@3.6.1]
-
-[protoc@3.5.1]
-    executable=protoc_3.5.x
-    active=true
+	active=true
 
 [kubectl@1.13.0]
 
@@ -17,8 +15,6 @@ dir=./generated
 	active=true
 
 [kubectl@1.11.0]
-
-[kubectl@1.10.0]
 
 [helm@2.12.3]
     active=true
@@ -39,6 +35,22 @@ dir=./generated
     # Available <os>_<arch>
     darwin_amd64
 
+[recipe vault]
+# https://releases.hashicorp.com/vault/1.0.3/vault_1.0.3_linux_amd64.zip
+    url=https://releases.hashicorp.com/vault/{{ .Version }}/vault_{{ .Version}}_{{ .OS }}_{{ .Arch }}.zip
+
+    # Available <os>_<arch>
+    linux_amd64
+    linux_386
+    linux_arm
+    darwin_amd64
+    freebsd_amd64
+    freebsd_386
+    freebsd_arm
+    openbsd_amd64
+    openbsd_386
+    openbsd_arm
+    solaris_amd64
 
 [recipe terraform]
     url=https://releases.hashicorp.com/terraform/{{ .Version }}/terraform_{{ .Version}}_{{ .OS }}_{{ .Arch }}.zip
