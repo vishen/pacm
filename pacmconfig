@@ -1,7 +1,9 @@
 dir=/home/pentecostjonathan/src/bin/pacmbin
 
-[terraform@0.11.10]
+[terraform@0.11.11]
 	active=true
+
+[terraform@0.11.10]
 
 [vault@1.0.3]
 	active=true
