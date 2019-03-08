@@ -114,6 +114,8 @@ func (c *Config) handleRecipe(section *parser.Section) error {
 			r.BinaryName = v
 		case "extract":
 			r.ExtractPaths = strings.Split(v, ",")
+		case "releases_github":
+			r.ReleasesGithub = v
 		default:
 			if utils.IsValidOSArchPair(k) {
 				r.AvailableArchOS[k] = v
@@ -173,8 +175,8 @@ type Config struct {
 
 func (c *Config) MakePackageActive(p *Package) error {
 	for _, pkg := range c.Packages {
-		if p.RecipeName == pkg.RecipeName && p.Version == pkg.Version {
-			pkg.Active = true
+		if p.RecipeName == pkg.RecipeName {
+			pkg.Active = false
 			pkg.iniSection.RemoveKey("active")
 		}
 	}

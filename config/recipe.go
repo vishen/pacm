@@ -18,6 +18,8 @@ type Recipe struct {
 
 	ExtractPaths []string
 
+	ReleasesGithub string
+
 	AvailableArchOS map[string]string
 
 	// NOT YET IMPLEMENTED

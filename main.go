@@ -9,6 +9,7 @@ import (
 
 	"github.com/vishen/pacm/config"
 	"github.com/vishen/pacm/env"
+	"github.com/vishen/pacm/releases"
 )
 
 func main() {
@@ -85,6 +86,39 @@ func main() {
 			}
 			if !foundBinaries {
 				fmt.Printf("  - error: missing binary files on disk...\n")
+			}
+		}
+	case "updates":
+		for _, r := range conf.Recipes {
+			if r.ReleasesGithub == "" {
+				continue
+			}
+
+			grs, err := releases.GithubReleases(r.ReleasesGithub)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("recipe %s\n", r.Name)
+			for _, g := range grs {
+				if g.Draft {
+					continue
+				}
+				fmt.Printf("> %s", g.TagName)
+				for _, p := range conf.Packages {
+					if p.RecipeName == r.Name {
+						if g.TagName == p.Version || g.TagName == "v"+p.Version {
+							fmt.Printf(" [INSTALLED]")
+							if p.Active {
+								fmt.Printf(" [ACTIVE]")
+							}
+						}
+					}
+				}
+				if g.Prerelease {
+					fmt.Printf(" [PRE-RELEASE]")
+				}
+				fmt.Println()
+				//fmt.Printf(" \tpublished=%s\n", g.PublishedAt)
 			}
 		}
 	default:
