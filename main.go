@@ -99,6 +99,7 @@ func main() {
 				log.Fatal(err)
 			}
 			fmt.Printf("recipe %s\n", r.Name)
+			// TODO: Order this by version number and the publishedAt
 			for _, g := range grs {
 				if g.Draft {
 					continue
@@ -117,8 +118,7 @@ func main() {
 				if g.Prerelease {
 					fmt.Printf(" [PRE-RELEASE]")
 				}
-				fmt.Println()
-				//fmt.Printf(" \tpublished=%s\n", g.PublishedAt)
+				fmt.Printf(" \tpublished=%s\n", g.PublishedAt)
 			}
 		}
 	default:
