@@ -1,11 +1,11 @@
 - make it a cli program
 - ensure "activate" and "use" can download arbitary recipes
 - "use" should take an "envfile" for different environments
-- format output as tables.
++ format output as tables.
 - Doen't take into account available <os>_<arch>
 - Add back in checksums
 - "updates" should take an argument
-- "updates" should be ordered
++ "updates" should be ordered
 
 - should be able to take arbitrary pacman config file
 - run abitary shell commands on archived file after it has downloaded

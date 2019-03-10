@@ -7,8 +7,9 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/olekukonko/tablewriter"
+
 	"github.com/vishen/pacm/config"
-	"github.com/vishen/pacm/env"
 	"github.com/vishen/pacm/releases"
 )
 
@@ -39,31 +40,7 @@ func main() {
 		if err := conf.CreatePackages(runtime.GOARCH, runtime.GOOS); err != nil {
 			log.Fatal(err)
 		}
-	case "env", "shell":
-		// TODO: Create a new "shell" and override the PATH to include
-		// the specified packages as the pseudo-active ones.
-		if len(os.Args[2:]) == 0 {
-			fmt.Printf("need <recipe>@<version>'s to make active\n")
-			return
-		}
-		pkgs := []*config.Package{}
-		for _, recipeAndVersion := range os.Args[2:] {
-			pkg, err := extractAndCheckRecipeAndVersion(conf, recipeAndVersion)
-			if err != nil {
-				log.Fatal(err)
-			}
-			pkgs = append(pkgs, pkg)
-		}
-		if err := env.Env(conf, pkgs); err != nil {
-			log.Fatal(err)
-		}
 	case "status":
-		if os.Getenv("PACM_IN_SHELL") == "true" {
-			fmt.Println("Currently in a pacm shell")
-			fmt.Printf("Using the following packages: %s", os.Getenv("PACM_PACKAGES"))
-		} else {
-			fmt.Println("Not in a shell")
-		}
 		fmt.Println("Installed packages:")
 		for _, p := range conf.Packages {
 			fmt.Printf("> %s@%s", p.RecipeName, p.Version)
@@ -74,8 +51,6 @@ func main() {
 				fmt.Printf(" executable_name=%s", p.ExecutableName)
 			}
 			fmt.Println()
-			// TODO: This doesn't actually show the binaries installed
-			// on disk.
 			foundBinaries := false
 			for _, i := range conf.CurrentlyInstalled {
 				if !strings.Contains(i.SymlinkAbsolutePath, fmt.Sprintf("_pacm/%s_%s", p.RecipeName, p.Version)) {
@@ -98,34 +73,41 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			fmt.Printf("recipe %s\n", r.Name)
-			// TODO: Order this by version number and the publishedAt
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"Tag", "Status", "GithubStatus", "Published"})
+
 			for _, g := range grs {
-				if g.Draft {
-					continue
-				}
-				fmt.Printf("> %s", g.TagName)
+				d := make([]string, 4)
+				d[0] = fmt.Sprintf("%s-%s", r.Name, g.TagName)
 				for _, p := range conf.Packages {
 					if p.RecipeName == r.Name {
 						if g.TagName == p.Version || g.TagName == "v"+p.Version {
-							fmt.Printf(" [INSTALLED]")
 							if p.Active {
-								fmt.Printf(" [ACTIVE]")
+								d[1] = "active,"
 							}
+							d[1] += "installed"
 						}
 					}
 				}
-				if g.Prerelease {
-					fmt.Printf(" [PRE-RELEASE]")
+				if g.Draft {
+					d[2] = "draft"
 				}
-				fmt.Printf(" \tpublished=%s\n", g.PublishedAt)
+				if g.Prerelease {
+					if len(d[2]) > 0 {
+						d[2] += ","
+					}
+					d[2] += "pre-release"
+				}
+				d[3] = fmt.Sprintf("%s", g.PublishedAt)
+				table.Append(d)
 			}
+			table.Render() // Send output
 		}
 	default:
 		if err := conf.CreatePackages(runtime.GOARCH, runtime.GOOS); err != nil {
 			log.Fatal(err)
 		}
-
 	}
 }
 

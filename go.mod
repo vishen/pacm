@@ -5,7 +5,9 @@ module github.com/vishen/pacm
 require (
 	github.com/h2non/filetype v1.0.5
 	github.com/knq/ini v0.0.0-20181118015158-a301e724bd35
+	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.0.0
+	github.com/olekukonko/tablewriter v0.0.1 // indirect
 	github.com/pkg/errors v0.8.1
 	gopkg.in/h2non/filetype.v1 v1.0.5
 )

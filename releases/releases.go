@@ -2,8 +2,13 @@ package releases
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -33,5 +38,42 @@ func GithubReleases(url string) ([]GithubRelease, error) {
 	if err := json.NewDecoder(res.Body).Decode(&releases); err != nil {
 		return nil, err
 	}
-	return releases, nil
+	return orderBySemver(releases), nil
+}
+
+func orderBySemver(releases []GithubRelease) []GithubRelease {
+	sort.Slice(releases, func(i, j int) bool {
+		ri := releases[i]
+		rj := releases[j]
+
+		riTagSplit := strings.SplitN(ri.TagName, ".", 3)
+		rjTagSplit := strings.SplitN(rj.TagName, ".", 3)
+		for i := 0; i < 3; i++ {
+			if riTagSplit[i] < rjTagSplit[i] {
+				return false
+			} else if riTagSplit[i] > rjTagSplit[i] {
+				return true
+			}
+		}
+		return true
+	})
+	return releases
+}
+
+func extractFirstNumber(s string) int {
+	start := 0
+	end := 0
+	isDigit := false
+	for i, c := range s {
+		if unicode.IsDigit(c) && !isDigit {
+			isDigit = true
+			start = i
+		} else if isDigit {
+			end = i
+			break
+		}
+	}
+	fmt.Println(s, s[start:end])
+	val, _ := strconv.Atoi(s[start:end])
+	return val
 }
