@@ -25,12 +25,12 @@ import (
 )
 
 const (
-	defaultConfigPath = "~/.config/pacm/config"
+	DefaultConfigPath = "~/.config/pacm/config"
 )
 
 func Load(path string) (*Config, error) {
 	if path == "" {
-		path = defaultConfigPath
+		path = DefaultConfigPath
 	}
 
 	configPath, err := homedir.Expand(path)
