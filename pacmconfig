@@ -19,6 +19,9 @@ dir=/home/pentecostjonathan/src/bin/pacmbin
 [helm@2.12.3]
     active=true
 
+[jq@1.6]
+	active=true
+
 [recipe helm]
     url=https://storage.googleapis.com/kubernetes-helm/helm-v{{ .Version }}-{{ .OS }}-{{ .Arch }}.tar.gz
 
@@ -74,6 +77,14 @@ dir=/home/pentecostjonathan/src/bin/pacmbin
 [checksum terraform 0.11.10]
     linux_amd64=checksum_sha256:43543a0e56e31b0952ea3623521917e060f2718ab06fe2b2d506cfaa14d54527
 
+
+[recipe jq]
+	url=https://github.com/stedolan/jq/releases/download/jq-{{ .Version }}/jq-{{ .OS }}{{ .Arch }}
+    
+	binary=true
+    binary_name=jq
+
+	linux_amd64=linux:64
 
 [recipe protoc]
     url=https://github.com/protocolbuffers/protobuf/releases/download/v{{ .Version }}/protoc-{{ .Version }}-{{ .OS }}-{{ .Arch }}.zip

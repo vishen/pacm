@@ -36,6 +36,7 @@ func (p Package) generateURL(arch, os string, r Recipe) (string, error) {
 		OS:      os,
 		Arch:    arch,
 	}
+	fmt.Printf("TD=%#v\n", td)
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, td); err != nil {
 		return "", err
