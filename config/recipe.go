@@ -1,10 +1,12 @@
 package config
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
+	"html/template"
 	"strings"
 )
 
@@ -25,6 +27,29 @@ type Recipe struct {
 	// NOT YET IMPLEMENTED
 	ChecksumType string
 	Checksum     string
+}
+
+func (r Recipe) generateURL(arch, os, packageVersion string) (string, error) {
+	tmpl, err := template.New("recipe-" + r.Name).Parse(r.URL)
+	if err != nil {
+		return "", err
+	}
+
+	arch, os = r.MappedArchOS(arch, os)
+	td := struct {
+		Version string
+		OS      string
+		Arch    string
+	}{
+		Version: packageVersion,
+		OS:      os,
+		Arch:    arch,
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, td); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 func (r Recipe) MappedArchOS(arch, os string) (string, string) {

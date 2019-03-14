@@ -3,7 +3,6 @@ package cache
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,10 +13,7 @@ import (
 const cachePath = "~/.config/pacm/cache"
 
 type Cache struct {
-	path string
-
-	// TODO: loop through cache directory and see what archives
-	// are there.
+	path     string
 	Archives map[string]bool
 }
 
@@ -44,7 +40,6 @@ func LoadCache() (*Cache, error) {
 }
 
 func (c Cache) LoadArchive(filename string) ([]byte, error) {
-	log.Printf("found cached archive %q\n", filename)
 	// b, err := ioutil.ReadFile(filepath.Join(filename, archivePath))
 	filename = filepath.Join(c.path, filename)
 	b, err := ioutil.ReadFile(filename)
@@ -70,7 +65,6 @@ func (c Cache) WriteArchive(filename string, data []byte) error {
 }
 
 func (c Cache) DownloadAndSave(url, filename string) ([]byte, error) {
-	log.Printf("Getting %s...\n", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err

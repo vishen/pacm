@@ -14,7 +14,7 @@ import (
 // updatesCmd represents the updates command
 var updatesCmd = &cobra.Command{
 	Use:   "updates <recipe1> <recipe2>",
-	Short: "Updated for an installed package",
+	Short: "Available updates for an installed package",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		if len(args) < 1 {
@@ -54,7 +54,7 @@ var updatesCmd = &cobra.Command{
 
 			for _, g := range grs {
 				d := make([]string, 4)
-				d[0] = fmt.Sprintf("%s-%s", r.Name, g.TagName)
+				d[0] = fmt.Sprintf("%s@%s", r.Name, g.TagName)
 				for _, p := range conf.Packages {
 					if p.RecipeName == r.Name {
 						if g.TagName == p.Version || g.TagName == "v"+p.Version {

@@ -20,13 +20,23 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/h2non/filetype.v1"
 
-	"github.com/vishen/pacm/cache"
+	pacmcache "github.com/vishen/pacm/cache"
 	"github.com/vishen/pacm/utils"
 )
 
 const (
 	DefaultConfigPath = "~/.config/pacm/config"
 )
+
+var cache *pacmcache.Cache
+
+func init() {
+	var err error
+	cache, err = pacmcache.LoadCache()
+	if err != nil {
+		log.Fatalf("unable to load cache: %v", err)
+	}
+}
 
 func Load(path string) (*Config, error) {
 	if path == "" {
@@ -173,6 +183,32 @@ type Config struct {
 	CurrentlyInstalled []Installed
 }
 
+func (c *Config) AddPackage(arch, OS, recipeName, version string) error {
+	// Check if the package is already installed.
+	for _, p := range c.Packages {
+		if p.RecipeName == recipeName && p.Version == version {
+			return fmt.Errorf("%s@%s is already installed", recipeName, version)
+		}
+	}
+
+	// Check to see if the recipe exists.
+	var recipe Recipe
+	for _, r := range c.Recipes {
+		if r.Name == recipeName {
+			recipe = r
+			break
+		}
+	}
+	if recipe.Name == "" {
+		return fmt.Errorf("unknown recipe %q", recipeName)
+	}
+
+	if _, err := c.getCachedOrDownload(arch, OS, recipe, version); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Config) MakePackageActive(p *Package) error {
 	for _, pkg := range c.Packages {
 		if p.RecipeName == pkg.RecipeName {
@@ -235,8 +271,6 @@ func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, dat
 	// Need to symlink absolute path for Macos, possibly the same for linux?
 	outPath, _ = filepath.Abs(outPath)
 
-	log.Printf("writing to %s (filenameWithVersion=%s)\n", outPath, filenameWithVersion)
-
 	// This will overwrite the file, but not the file permissions, so we
 	// need to manually set them afterwards.
 	if err := ioutil.WriteFile(outPath, data, mode); err != nil {
@@ -276,44 +310,52 @@ func (c *Config) SymlinkFile(symlink, filename string) error {
 	return nil
 }
 
-func (c *Config) CreatePackages(currentArch, currentOS string) error {
-	cache, err := cache.LoadCache()
-	if err != nil {
-		return err
-	}
+func (c *Config) CreatePackages(arch, OS string) error {
 	for _, i := range c.CurrentlyInstalled {
 		os.Remove(i.AbsolutePath)
 	}
 	// TODO: clean up, move this filepath join _pacm to a centralised location.
 	os.RemoveAll(filepath.Join(c.OutputDir, "_pacm"))
 	for _, p := range c.Packages {
-		if err := c.CreatePackage(currentArch, currentOS, p, cache); err != nil {
+		if err := c.CreatePackage(arch, OS, p); err != nil {
 			return errors.Wrapf(err, "unable to create package %s@%s", p.RecipeName, p.Version)
 		}
 	}
 	return nil
 }
 
-func (c *Config) CreatePackage(currentArch, currentOS string, p *Package, cache *cache.Cache) error {
-	r := c.RecipeForPackage(p)
+func (c *Config) generateArchivePath(arch, OS string, r Recipe, versionName string) string {
+	return fmt.Sprintf("%s_%s_%s-%s", r.Name, versionName, arch, OS)
+}
+
+func (c *Config) getCachedOrDownload(arch, OS string, r Recipe, packageVersion string) ([]byte, error) {
 	var b []byte
-	archivePath := fmt.Sprintf("%s_%s_%s-%s", p.RecipeName, p.Version, currentArch, currentOS)
-	// If we have don't an archive on disk.
+	archivePath := c.generateArchivePath(arch, OS, r, packageVersion)
+	// If we have don't an archive on disk, download and save to disk.
 	if ok := cache.Archives[archivePath]; !ok {
-		url, err := p.generateURL(currentArch, currentOS, r)
+		url, err := r.generateURL(arch, OS, packageVersion)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		b, err = cache.DownloadAndSave(url, archivePath)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		var err error
 		b, err = cache.LoadArchive(archivePath)
 		if err != nil {
-			return err
+			return nil, err
 		}
+	}
+	return b, nil
+}
+
+func (c *Config) CreatePackage(arch, OS string, p *Package) error {
+	r := c.RecipeForPackage(p)
+	b, err := c.getCachedOrDownload(arch, OS, r, p.Version)
+	if err != nil {
+		return err
 	}
 
 	// If the recipe is a binary then we just need to
