@@ -12,7 +12,6 @@ dir=/home/pentecostjonathan/src/bin/pacmbin
 	active=true
 
 [kubectl@1.14.0-beta.1]
-	active=true
 
 [kubectl@1.10.13]
 
@@ -101,3 +100,5 @@ dir=/home/pentecostjonathan/src/bin/pacmbin
 
 [checksum protoc 3.5.1]
     linux_386=checksum_sha256:something
+[kubectl@1.14.0-beta.2]
+	active=true

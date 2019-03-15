@@ -206,7 +206,22 @@ func (c *Config) AddPackage(arch, OS, recipeName, version string) error {
 	if _, err := c.getCachedOrDownload(arch, OS, recipe, version); err != nil {
 		return err
 	}
-	return nil
+
+	// TODO: move this to a common function and all other occurances.
+	recipeAndVersion := fmt.Sprintf("%s@%s", recipeName, version)
+
+	// TODO: This will add the section to the end of the list,
+	// and the section will outputted last in the file... Maybe
+	// for github.com/knq/ini and add ability to add section to start?
+	section := c.iniFile.AddSection(recipeAndVersion)
+	pkg := &Package{
+		iniSection: section,
+		RecipeName: recipeName,
+		Version:    version,
+	}
+
+	c.Packages = append(c.Packages, pkg)
+	return c.MakePackageActive(pkg)
 }
 
 func (c *Config) MakePackageActive(p *Package) error {

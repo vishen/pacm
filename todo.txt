@@ -1,7 +1,6 @@
 - Doen't take into account available <os>_<arch>
 - Add back in checksums
 
-- should be able to take arbitrary pacman config file
 - run abitary shell commands on archived file after it has downloaded
 ###########################################################
 
@@ -17,4 +16,3 @@
     - Need to know the files before hand because currently everything is done in-memory and only binaries are written to disk
     - protoc could move the include directories to relevated locations
     - should have string interpolation
-    - go you could add the following for each new version if wanted:
