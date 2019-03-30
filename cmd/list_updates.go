@@ -11,10 +11,10 @@ import (
 	"github.com/vishen/pacm/releases"
 )
 
-// updatesCmd represents the updates command
-var updatesCmd = &cobra.Command{
-	Use:   "updates <recipe1> <recipe2>",
-	Short: "Available updates for an installed package",
+// listUpdatesCmd represents the listUpdates command
+var listUpdatesCmd = &cobra.Command{
+	Use:   "list-updates <recipe1> <recipe2>",
+	Short: "Available updates for installed package",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		if len(args) < 1 {
@@ -83,5 +83,5 @@ var updatesCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(updatesCmd)
+	rootCmd.AddCommand(listUpdatesCmd)
 }

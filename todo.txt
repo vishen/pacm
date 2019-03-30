@@ -1,7 +1,13 @@
-- Rename "install" -> "upgrade"
-- "upgrade" to "latest" by checking downloads.
+- "upgrade" to "latest" by checking downloads:
+	- should ask for stable or prelease
+	- or, default to stable, but pre-release flag to download non-stable
+- "list-updates" should remove 'v' from version;
+	- however, this should only happen if the recipe url doesn't need it, no idea how to deal with that.
+		- Possibly change the 'update' command to try without the 'v', likely easier
+- "list-updates" should show error if missing from path, even if it isn't in verbose mode!
 - Doen't take into account available <os>_<arch>
 - Add back in checksums
+- sorting by sem-var doesn't work correctly, "terraform@v0.0.2" will rank higher than "terraform@v0.0.11"
 
 - run abitary shell commands on archived file after it has downloaded
 ###########################################################

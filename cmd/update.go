@@ -9,10 +9,10 @@ import (
 	"github.com/vishen/pacm/config"
 )
 
-// installCmd represents the install command
-var installCmd = &cobra.Command{
-	Use:   "install <recipe>@<version> <recipe>@<version>",
-	Short: "Install packages",
+// updateCmd represents the update command
+var updateCmd = &cobra.Command{
+	Use:   "update <recipe>@<version> <recipe>@<version>",
+	Short: "Update packages",
 	Run: func(cmd *cobra.Command, args []string) {
 		configPath, _ := cmd.Flags().GetString("config")
 		conf, err := config.Load(configPath)
@@ -46,5 +46,5 @@ var installCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(installCmd)
+	rootCmd.AddCommand(updateCmd)
 }

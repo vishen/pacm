@@ -44,6 +44,7 @@ func GithubReleases(url string) ([]GithubRelease, error) {
 // TODO: move into common location. Has been copied and modified
 // in cmd/status.go
 func orderBySemver(releases []GithubRelease) []GithubRelease {
+
 	sort.Slice(releases, func(i, j int) bool {
 		ri := releases[i]
 		rj := releases[j]
