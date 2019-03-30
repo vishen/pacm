@@ -1,3 +1,5 @@
+- Rename "install" -> "upgrade"
+- "upgrade" to "latest" by checking downloads.
 - Doen't take into account available <os>_<arch>
 - Add back in checksums
 
