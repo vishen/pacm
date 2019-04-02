@@ -32,6 +32,13 @@ var updateCmd = &cobra.Command{
 				fmt.Printf("expected <recipe>@<version>, received %q\n", recipeAndVersion)
 				return
 			}
+			// TODO: HACK: Dumb hack to remove leading 'v' from the version since most
+			// recipes don't have the v. THIS IS NOT A FIX, and won't always
+			// work.
+			recipe := parts[1]
+			if len(recipe) > 0 && recipe[0] == 'v' {
+				recipe = recipe[1:]
+			}
 			if err := conf.AddPackage(currentArch, currentOS, parts[0], parts[1]); err != nil {
 				fmt.Printf("unable to add package %q: %v\n", recipeAndVersion, err)
 				return

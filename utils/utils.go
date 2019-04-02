@@ -5,7 +5,9 @@ import (
 	"debug/macho"
 	"io"
 	"runtime"
+	"strconv"
 	"strings"
+	"unicode"
 )
 
 var (
@@ -144,4 +146,43 @@ func IsExecutable(r io.ReaderAt) bool {
 		return false
 	}
 	return false
+}
+
+func SemvarIsBigger(semvar1, semvar2 string) bool {
+	s1 := strings.SplitN(semvar1, ".", 3)
+	s2 := strings.SplitN(semvar2, ".", 3)
+
+	for i := 0; i < 3; i++ {
+		s1i := s1[i]
+		s2i := s2[i]
+		if s1i == s2i {
+			continue
+		}
+
+		s1in := extractFirstNumber(s1i)
+		s2in := extractFirstNumber(s2i)
+		if s1in > s2in {
+			return false
+		} else if s1in < s2in {
+			return true
+		}
+	}
+	return semvar1 > semvar2
+}
+
+func extractFirstNumber(s string) int {
+	start := 0
+	end := 0
+	isDigit := false
+	for i, c := range s {
+		if unicode.IsDigit(c) && !isDigit {
+			isDigit = true
+			start = i
+		} else if isDigit {
+			end = i
+			break
+		}
+	}
+	val, _ := strconv.Atoi(s[start:end])
+	return val
 }

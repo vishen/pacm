@@ -10,7 +10,17 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 	"github.com/vishen/pacm/config"
+	"github.com/vishen/pacm/utils"
 )
+
+type status struct {
+	recipe  string
+	version string
+	active  bool
+	modtime time.Time
+	path    string
+	err     string
+}
 
 // statusCmd represents the status command
 var statusCmd = &cobra.Command{
@@ -34,28 +44,12 @@ var statusCmd = &cobra.Command{
 			if spi.RecipeName != spj.RecipeName {
 				return spi.RecipeName < spj.RecipeName
 			}
-			riTagSplit := strings.SplitN(spi.Version, ".", 3)
-			rjTagSplit := strings.SplitN(spj.Version, ".", 3)
-			for i := 0; i < 3; i++ {
-				if riTagSplit[i] < rjTagSplit[i] {
-					return false
-				} else if riTagSplit[i] > rjTagSplit[i] {
-					return true
-				}
-			}
-			return true
+			return utils.SemvarIsBigger(spi.Version, spj.Version)
 		})
 
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetAutoMergeCells(true)
-		table.SetRowLine(true)
-		if !verbose {
-			table.SetHeader([]string{"recipe", "version", "active"})
-		} else {
-			table.SetHeader([]string{"recipe", "version", "active", "mod time", "path"})
-		}
-
-		for _, p := range sortedPackages {
+		packageStatus := make([]status, len(sortedPackages))
+		foundError := false
+		for i, p := range sortedPackages {
 			if len(args) > 0 {
 				found := false
 				for _, a := range args {
@@ -68,31 +62,58 @@ var statusCmd = &cobra.Command{
 					continue
 				}
 			}
-			var d []string
-			if !verbose {
-				d = make([]string, 3)
-			} else {
-				d = make([]string, 5)
+			s := status{
+				recipe:  p.RecipeName,
+				version: p.Version,
 			}
-			d[0] = p.RecipeName
-			d[1] = p.Version
 			if p.Active {
-				d[2] = fmt.Sprintf("%s@%s", p.RecipeName, p.Version)
+				// d[2] = fmt.Sprintf("%s@%s", p.RecipeName, p.Version)
+				s.active = true
 			}
 
-			if verbose {
-				foundBinaries := false
-				for _, i := range conf.CurrentlyInstalled {
-					if !strings.Contains(i.SymlinkAbsolutePath, fmt.Sprintf("_pacm/%s_%s", p.RecipeName, p.Version)) {
-						continue
-					}
-					foundBinaries = true
-					d[3] = fmt.Sprintf("%s", i.ModTime.Truncate(time.Second))
-					d[4] = i.AbsolutePath
+			foundBinaries := false
+			for _, i := range conf.CurrentlyInstalled {
+				if !strings.Contains(i.SymlinkAbsolutePath, fmt.Sprintf("_pacm/%s_%s", p.RecipeName, p.Version)) {
+					continue
 				}
-				if !foundBinaries {
-					d[4] = "error: missing binary files on disk"
-				}
+				foundBinaries = true
+				s.modtime = i.ModTime.Truncate(time.Second)
+				s.path = i.AbsolutePath
+			}
+			if !foundBinaries {
+				s.err = "error: missing binary files on disk"
+				foundError = true
+			}
+			packageStatus[i] = s
+		}
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetAutoMergeCells(true)
+		table.SetRowLine(true)
+		var headerLength int
+		if foundError {
+			table.SetHeader([]string{"recipe", "version", "active", "error"})
+			headerLength = 4
+		} else {
+			if !verbose {
+				table.SetHeader([]string{"recipe", "version", "active"})
+				headerLength = 3
+			} else {
+				table.SetHeader([]string{"recipe", "version", "active", "mod time", "path"})
+				headerLength = 5
+			}
+		}
+		for _, s := range packageStatus {
+			d := make([]string, headerLength)
+			d[0] = s.recipe
+			d[1] = s.version
+			if s.active {
+				d[2] = fmt.Sprintf("%s@%s", s.recipe, s.version)
+			}
+			if foundError {
+				d[3] = s.err
+			} else if verbose {
+				d[3] = fmt.Sprintf("%s", s.modtime)
+				d[4] = s.path
 			}
 			table.Append(d)
 		}

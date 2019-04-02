@@ -2,13 +2,11 @@ package releases
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"sort"
-	"strconv"
-	"strings"
 	"time"
-	"unicode"
+
+	"github.com/vishen/pacm/utils"
 )
 
 const (
@@ -38,45 +36,10 @@ func GithubReleases(url string) ([]GithubRelease, error) {
 	if err := json.NewDecoder(res.Body).Decode(&releases); err != nil {
 		return nil, err
 	}
-	return orderBySemver(releases), nil
-}
-
-// TODO: move into common location. Has been copied and modified
-// in cmd/status.go
-func orderBySemver(releases []GithubRelease) []GithubRelease {
-
 	sort.Slice(releases, func(i, j int) bool {
-		ri := releases[i]
-		rj := releases[j]
-
-		riTagSplit := strings.SplitN(ri.TagName, ".", 3)
-		rjTagSplit := strings.SplitN(rj.TagName, ".", 3)
-		for i := 0; i < 3; i++ {
-			if riTagSplit[i] < rjTagSplit[i] {
-				return false
-			} else if riTagSplit[i] > rjTagSplit[i] {
-				return true
-			}
-		}
-		return true
+		ri := releases[i].TagName
+		rj := releases[j].TagName
+		return utils.SemvarIsBigger(ri, rj)
 	})
-	return releases
-}
-
-func extractFirstNumber(s string) int {
-	start := 0
-	end := 0
-	isDigit := false
-	for i, c := range s {
-		if unicode.IsDigit(c) && !isDigit {
-			isDigit = true
-			start = i
-		} else if isDigit {
-			end = i
-			break
-		}
-	}
-	fmt.Println(s, s[start:end])
-	val, _ := strconv.Atoi(s[start:end])
-	return val
+	return releases, nil
 }
