@@ -119,7 +119,11 @@ func (c *Config) handleRecipe(section *parser.Section) error {
 		case "url":
 			r.URL = v
 		case "binary":
-			r.IsBinary = utils.StringBool(v)
+			var err error
+			r.IsBinary, err = utils.StringBool(v)
+			if err != nil {
+				return fmt.Errorf("unable to extract boolean value from [recipe %s.%s = %q]: %v", name, k, v, err)
+			}
 		case "binary_name":
 			r.BinaryName = v
 		case "extract":
@@ -153,7 +157,11 @@ func (c *Config) handlePackage(section *parser.Section) error {
 		v := section.GetRaw(k)
 		switch k {
 		case "active":
-			p.Active = utils.StringBool(v)
+			var err error
+			p.Active, err = utils.StringBool(v)
+			if err != nil {
+				return fmt.Errorf("unable to extract boolean value from [recipe %s.%s = %q]: %v", n, k, v, err)
+			}
 		case "executable":
 			p.ExecutableName = v
 		default:
@@ -262,6 +270,11 @@ func (c *Config) Validate() error {
 		}
 		if !foundRecipe {
 			return fmt.Errorf("recipe with name %q does not exist", p.RecipeName)
+		}
+	}
+	for _, r := range c.Recipes {
+		if r.IsBinary && r.BinaryName == "" {
+			return fmt.Errorf("recipe %q is marked binary but missing 'binary_name' field", r.Name)
 		}
 	}
 	return nil

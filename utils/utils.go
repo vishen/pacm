@@ -3,6 +3,7 @@ package utils
 import (
 	"debug/elf"
 	"debug/macho"
+	"fmt"
 	"io"
 	"runtime"
 	"strconv"
@@ -21,12 +22,14 @@ var (
 	}
 )
 
-func StringBool(str string) bool {
+func StringBool(str string) (bool, error) {
 	switch strings.ToLower(str) {
 	case "true", "t", "yes", "y":
-		return true
+		return true, nil
+	case "false", "f", "no", "n":
+		return false, nil
 	}
-	return false
+	return false, fmt.Errorf("%q is not a boolean value", str)
 }
 
 func IsValidOSArchPair(value string) bool {
@@ -155,15 +158,14 @@ func SemvarIsBigger(semvar1, semvar2 string) bool {
 	for i := 0; i < 3; i++ {
 		s1i := s1[i]
 		s2i := s2[i]
-		if s1i == s2i {
-			continue
-		}
-
 		s1in := extractFirstNumber(s1i)
 		s2in := extractFirstNumber(s2i)
-		if s1in > s2in {
+		if s1in == s2in {
+			continue
+		}
+		if s1in < s2in {
 			return false
-		} else if s1in < s2in {
+		} else if s1in > s2in {
 			return true
 		}
 	}
@@ -172,13 +174,13 @@ func SemvarIsBigger(semvar1, semvar2 string) bool {
 
 func extractFirstNumber(s string) int {
 	start := 0
-	end := 0
+	end := len(s)
 	isDigit := false
 	for i, c := range s {
-		if unicode.IsDigit(c) && !isDigit {
+		if !isDigit && unicode.IsDigit(c) {
 			isDigit = true
 			start = i
-		} else if isDigit {
+		} else if isDigit && !unicode.IsDigit(c) {
 			end = i
 			break
 		}
