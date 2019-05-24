@@ -23,6 +23,7 @@ var ensureCmd = &cobra.Command{
 			fmt.Printf("error downloading and installing packages: %v", err)
 			return
 		}
+		fmt.Println("Everything is up-to-date")
 	},
 }
 

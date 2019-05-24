@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/olekukonko/tablewriter"
@@ -17,10 +16,7 @@ var listUpdatesCmd = &cobra.Command{
 	Short: "Available updates for installed package",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if len(args) < 1 {
-			fmt.Printf("requires at least one argument\n")
-			return
-		}
+		showAll := len(args) == 0
 
 		configPath, _ := cmd.Flags().GetString("config")
 		conf, err := config.Load(configPath)
@@ -29,28 +25,30 @@ var listUpdatesCmd = &cobra.Command{
 			return
 		}
 
+		foundRecipe := false
 		for _, r := range conf.Recipes {
 			if r.ReleasesGithub == "" {
 				continue
 			}
-			// TODO: This is an awful approach, move into a function that
-			// just returns the recipe for a given name. Factor with
-			// cmd/update.go
-			found := false
-			for _, a := range args {
-				if a == r.Name {
-					found = true
-					break
+			if !showAll {
+				found := false
+				for _, a := range args {
+					if a == r.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue
 				}
 			}
-			if !found {
-				continue
-			}
+			foundRecipe = true
 
 			grs, err := releases.GithubReleases(r.ReleasesGithub)
 			// TODO: Return error!
 			if err != nil {
-				log.Fatal(err)
+				fmt.Printf("%q: unable to get github-release for %q: %v\n", r.Name, r.ReleasesGithub, err)
+				continue
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
@@ -82,6 +80,9 @@ var listUpdatesCmd = &cobra.Command{
 				table.Append(d)
 			}
 			table.Render() // Send output
+		}
+		if !foundRecipe {
+			fmt.Printf("No recipe found\n")
 		}
 	},
 }
