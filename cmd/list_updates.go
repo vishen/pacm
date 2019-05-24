@@ -45,7 +45,6 @@ var listUpdatesCmd = &cobra.Command{
 			foundRecipe = true
 
 			grs, err := releases.GithubReleases(r.ReleasesGithub)
-			// TODO: Return error!
 			if err != nil {
 				fmt.Printf("%q: unable to get github-release for %q: %v\n", r.Name, r.ReleasesGithub, err)
 				continue

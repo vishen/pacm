@@ -108,20 +108,19 @@ func (c *Config) parseIniFile(f *ini.File) error {
 }
 
 func (c *Config) downloadRemoteRecipes() error {
-	pwd, err := homedir.Expand("~/.config/pacm/remote_recipes")
+	dir, err := homedir.Expand("~/.config/pacm/remote_recipes")
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(pwd, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	log.Printf("downloading remote repos into %q", pwd)
 
 	// TODO: Make configurable and allow multiple remotes
 	remotes := []string{"github.com/vishen/pacm-recipes"}
 
 	for _, remote := range remotes {
-		remoteFolder := filepath.Join(pwd, strings.Replace(remote, "/", "_", -1))
+		remoteFolder := filepath.Join(dir, strings.Replace(remote, "/", "_", -1))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 		// Build the client
@@ -135,7 +134,6 @@ func (c *Config) downloadRemoteRecipes() error {
 		if err := client.Get(); err != nil {
 			return err
 		}
-		log.Printf("downloaded %q to %q", remote, remoteFolder)
 		if err := c.handleRecipeFiles(remoteFolder); err != nil {
 			return err
 		}
@@ -377,18 +375,9 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, data []byte) error {
-	// TODO: Clean this up!!!!!
-	// TODO: Clean this up!!!!!
-	// TODO: Clean this up!!!!!
-	// TODO: Clean this up!!!!!
-	// TODO: Clean this up!!!!!
-	// TODO: Clean this up!!!!!
-	// TODO: Clean this up!!!!!
-	// TODO: Clean this up!!!!!
 	filenameWithVersion := p.FilenameWithVersion(filename)
 	filenameWithVersionAndRecipe := fmt.Sprintf("%s_%s_%s", p.RecipeName, p.Version, filename)
 	path := filepath.Join(c.OutputDir, "_pacm")
-	// TODO: Move this to somewhere more useful.
 	os.MkdirAll(path, 0755)
 
 	outPath := filepath.Join(path, filenameWithVersionAndRecipe)
@@ -422,8 +411,6 @@ func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, dat
 }
 
 func (c *Config) SymlinkFile(symlink, filename string) error {
-	// TODO: Cleanup
-	// symlinkPath := filepath.Join(c.OutputDir, symlink)
 	symlinkPath := symlink
 	filePath := filepath.Join(c.OutputDir, filename)
 	os.Remove(filePath)
@@ -438,7 +425,6 @@ func (c *Config) CreatePackages(arch, OS string) error {
 	for _, i := range c.CurrentlyInstalled {
 		os.Remove(i.AbsolutePath)
 	}
-	// TODO: clean up, move this filepath join _pacm to a centralised location.
 	os.RemoveAll(filepath.Join(c.OutputDir, "_pacm"))
 	for _, p := range c.Packages {
 		if err := c.CreatePackage(arch, OS, p); err != nil {
@@ -485,7 +471,7 @@ func (c *Config) CreatePackage(arch, OS string, p *Package) error {
 	// If the recipe is a binary then we just need to
 	// save it and we are done.
 	if r.IsBinary {
-		// TODO: Make the permissions configurable
+		// TODO: Make the permissions configurable?
 		if err := c.WritePackage(p, r.BinaryName, 0755, b); err != nil {
 			return err
 		}
@@ -580,8 +566,6 @@ func (c *Config) populateCurrentlyInstalled() error {
 		return fmt.Errorf("no installed packages")
 	}
 
-	// TODO: make this a function or something.
-	//dir := filepath.Join(c.OutputDir, "_pacm")
 	dir := c.OutputDir
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {

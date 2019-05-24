@@ -67,7 +67,6 @@ var statusCmd = &cobra.Command{
 				version: p.Version,
 			}
 			if p.Active {
-				// d[2] = fmt.Sprintf("%s@%s", p.RecipeName, p.Version)
 				s.active = true
 			}
 

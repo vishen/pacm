@@ -40,22 +40,11 @@ func LoadCache() (*Cache, error) {
 }
 
 func (c Cache) LoadArchive(filename string) ([]byte, error) {
-	// b, err := ioutil.ReadFile(filepath.Join(filename, archivePath))
 	filename = filepath.Join(c.path, filename)
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	// NOTE: checksum verified here, and after we read response body;
-	// before we write to disk.
-	// TODO:
-	/*ok, err := verifyChecksum(r, b)
-	if err != nil {
-		return err
-	} else if !ok {
-		return fmt.Errorf("checksum failed")
-	}*/
-
 	return b, nil
 }
 
@@ -80,16 +69,6 @@ func (c Cache) DownloadAndSave(url, filename string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: verify checksum
-
-	/*ok, err := verifyChecksum(r, b)
-	if err != nil {
-		return err
-	} else if !ok {
-		return fmt.Errorf("checksum failed")
-	}*/
-
 	// Write the archive to a cache directory
 	if err := c.WriteArchive(filename, b); err != nil {
 		return nil, err
