@@ -102,9 +102,9 @@ $ pacm list-updates terraform
 +--------------------------+------------------+--------------+-------------------------------+
 |           TAG            |      STATUS      | GITHUBSTATUS |           PUBLISHED           |
 +--------------------------+------------------+--------------+-------------------------------+
+| terraform@v0.12.0        |                  |              | 2019-05-22 20:24:00 +0000 UTC |
 | terraform@v0.12.0-rc1    | installed        | pre-release  | 2019-02-28 22:59:41 +0000 UTC |
 | terraform@v0.12.0-alpha1 |                  | pre-release  | 2018-10-20 00:49:09 +0000 UTC |
-| terraform@v0.12.0        |                  |              | 2019-05-22 20:24:00 +0000 UTC |
 | terraform@v0.11.14       |                  |              | 2019-05-16 20:49:01 +0000 UTC |
 | terraform@v0.11.13       | active,installed |              | 2019-03-11 18:51:43 +0000 UTC |
 | terraform@v0.11.12-beta1 |                  | pre-release  | 2019-01-28 12:39:21 +0000 UTC |
@@ -126,9 +126,9 @@ $ pacm list-updates terraform
 +--------------------------+------------------+--------------+-------------------------------+
 |           TAG            |      STATUS      | GITHUBSTATUS |           PUBLISHED           |
 +--------------------------+------------------+--------------+-------------------------------+
+| terraform@v0.12.0        | active,installed |              | 2019-05-22 20:24:00 +0000 UTC |
 | terraform@v0.12.0-rc1    | installed        | pre-release  | 2019-02-28 22:59:41 +0000 UTC |
 | terraform@v0.12.0-alpha1 |                  | pre-release  | 2018-10-20 00:49:09 +0000 UTC |
-| terraform@v0.12.0        | active,installed |              | 2019-05-22 20:24:00 +0000 UTC |
 | terraform@v0.11.14       |                  |              | 2019-05-16 20:49:01 +0000 UTC |
 | terraform@v0.11.13       | installed        |              | 2019-03-11 18:51:43 +0000 UTC |
 | terraform@v0.11.12-beta1 |                  | pre-release  | 2019-01-28 12:39:21 +0000 UTC |

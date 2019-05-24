@@ -158,9 +158,14 @@ func SemvarIsBigger(semvar1, semvar2 string) bool {
 	for i := 0; i < 3; i++ {
 		s1i := s1[i]
 		s2i := s2[i]
-		s1in := extractFirstNumber(s1i)
-		s2in := extractFirstNumber(s2i)
+		s1in, s1OnlyNumber := extractFirstNumber(s1i)
+		s2in, s2OnlyNumber := extractFirstNumber(s2i)
 		if s1in == s2in {
+			if s1OnlyNumber && !s2OnlyNumber {
+				return true
+			} else if s2OnlyNumber && !s1OnlyNumber {
+				return false
+			}
 			continue
 		}
 		if s1in < s2in {
@@ -172,7 +177,7 @@ func SemvarIsBigger(semvar1, semvar2 string) bool {
 	return semvar1 > semvar2
 }
 
-func extractFirstNumber(s string) int {
+func extractFirstNumber(s string) (int, bool) {
 	start := 0
 	end := len(s)
 	isDigit := false
@@ -186,5 +191,5 @@ func extractFirstNumber(s string) int {
 		}
 	}
 	val, _ := strconv.Atoi(s[start:end])
-	return val
+	return val, len(s) == len(s[start:end])
 }
