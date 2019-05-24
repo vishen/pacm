@@ -1,16 +1,14 @@
-- "upgrade" to "latest" by checking downloads:
-	- should ask for stable or prelease
-	- or, default to stable, but pre-release flag to download non-stable
-- Doen't take into account available <os>_<arch>
-- Add back in checksums
-
+- fork ini package and allow adding sections to the top (rather than bottom)
+	- although, not an issue if config for recipe and packages are different.
+	- Maybe replace with - https://github.com/go-ini/ini
 - run abitary shell commands on archived file after it has downloaded
-###########################################################
-
-- Add built-in recipe packages
-- Add a configurable recipe path for when looking for recipes
-- Concurrency when downloading packages
+	- just add copy and chmod and maybe chown commands
 - logging
+	- adding verbose
+###########################################################
+- Doen't take into account available <os>_<arch>
+	- Don't care, can remove code
+- Concurrency when downloading packages
 - cli add <recipe> <full_url>
     - this could extract the relevant version, arch and os infor from the url and create a new recipe?
     - not sure if possible..?

@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	getter "github.com/hashicorp/go-getter"
 	"github.com/knq/ini"
 	"github.com/knq/ini/parser"
 	"github.com/mitchellh/go-homedir"
@@ -63,25 +65,14 @@ func Load(path string) (*Config, error) {
 		Recipes:  []Recipe{},
 		Packages: []*Package{},
 	}
-	for _, s := range f.AllSections() {
-		n := s.Name()
-		switch {
-		case n == "":
-			if err := config.handleGlobal(s); err != nil {
-				return nil, err
-			}
-			continue
-		case strings.HasPrefix(n, "recipe "):
-			if err := config.handleRecipe(s); err != nil {
-				return nil, err
-			}
-		case strings.HasPrefix(n, "checksum "):
-			// TODO: Handle checksums
-		default:
-			if err := config.handlePackage(s); err != nil {
-				return nil, err
-			}
-		}
+
+	// NOTE: This needs to go before the parsing of the config
+	// file since it will add recipes etc that can be overwritten.
+	if err := config.downloadRemoteRecipes(); err != nil {
+		return nil, err
+	}
+	if err := config.parseIniFile(config.iniFile); err != nil {
+		return nil, err
 	}
 	if err := config.populateCurrentlyInstalled(); err != nil {
 		return nil, err
@@ -90,6 +81,100 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	return config, nil
+}
+
+func (c *Config) parseIniFile(f *ini.File) error {
+	for _, s := range f.AllSections() {
+		n := s.Name()
+		switch {
+		case n == "":
+			if err := c.handleGlobal(s); err != nil {
+				return err
+			}
+			continue
+		case strings.HasPrefix(n, "recipe "):
+			if err := c.handleRecipe(s); err != nil {
+				return err
+			}
+		case strings.HasPrefix(n, "checksum "):
+			// TODO: Handle checksums
+		default:
+			if err := c.handlePackage(s); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Config) downloadRemoteRecipes() error {
+	pwd, err := homedir.Expand("~/.config/pacm/remote_recipes")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(pwd, 0755); err != nil {
+		return err
+	}
+	log.Printf("downloading remote repos into %q", pwd)
+
+	// TODO: Make configurable and allow multiple remotes
+	remotes := []string{"github.com/vishen/pacm-recipes"}
+
+	for _, remote := range remotes {
+		remoteFolder := filepath.Join(pwd, strings.Replace(remote, "/", "_", -1))
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+		// Build the client
+		client := &getter.Client{
+			Ctx:  ctx,
+			Src:  remote,
+			Dst:  remoteFolder,
+			Pwd:  ".",
+			Mode: getter.ClientModeAny,
+		}
+		if err := client.Get(); err != nil {
+			return err
+		}
+		log.Printf("downloaded %q to %q", remote, remoteFolder)
+		if err := c.handleRecipeFiles(remoteFolder); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Config) handleRecipeFiles(folder string) error {
+	// Loop through the downloaded folder and look for 'recipe.ini' files
+	// and add them to the config as recipes.
+
+	// TODO: Probably a bad way to do this; if a folder has thousands of
+	// nested folders this will loop through them all...
+	files, err := ioutil.ReadDir(folder)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range files {
+		if f.IsDir() {
+			if err := c.handleRecipeFiles(filepath.Join(folder, f.Name())); err != nil {
+				return err
+			}
+		} else if f.Name() == "recipe.ini" {
+			reader, err := os.Open(filepath.Join(folder, f.Name()))
+			if err != nil {
+				return err
+			}
+			defer reader.Close()
+			f, err := ini.Load(reader)
+			if err != nil {
+				return err
+			}
+			if err := c.parseIniFile(f); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Config) handleGlobal(section *parser.Section) error {
@@ -134,7 +219,18 @@ func (c *Config) handleRecipe(section *parser.Section) error {
 			}
 		}
 	}
-	c.Recipes = append(c.Recipes, r)
+	// Don't allow duplicate recipes. Replace with any newer recipes.
+	replaced := false
+	for i, recipe := range c.Recipes {
+		if recipe.Name == r.Name {
+			c.Recipes[i] = r
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		c.Recipes = append(c.Recipes, r)
+	}
 	return nil
 }
 

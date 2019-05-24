@@ -39,7 +39,8 @@ var updateCmd = &cobra.Command{
 			if len(recipe) > 0 && recipe[0] == 'v' {
 				recipe = recipe[1:]
 			}
-			if err := conf.AddPackage(currentArch, currentOS, parts[0], parts[1]); err != nil {
+
+			if err := conf.AddPackage(currentArch, currentOS, parts[0], recipe); err != nil {
 				fmt.Printf("unable to add package %q: %v\n", recipeAndVersion, err)
 				return
 			}

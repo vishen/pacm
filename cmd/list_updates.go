@@ -33,6 +33,9 @@ var listUpdatesCmd = &cobra.Command{
 			if r.ReleasesGithub == "" {
 				continue
 			}
+			// TODO: This is an awful approach, move into a function that
+			// just returns the recipe for a given name. Factor with
+			// cmd/update.go
 			found := false
 			for _, a := range args {
 				if a == r.Name {
@@ -45,6 +48,7 @@ var listUpdatesCmd = &cobra.Command{
 			}
 
 			grs, err := releases.GithubReleases(r.ReleasesGithub)
+			// TODO: Return error!
 			if err != nil {
 				log.Fatal(err)
 			}
