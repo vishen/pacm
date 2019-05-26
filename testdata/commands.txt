@@ -1,0 +1,24 @@
+env HOME=$WORK/home
+
+exec pacm -f invalid-config-file ensure
+stdout 'error loading config: open invalid-config-file: no such file or directory'
+
+exec pacm -f ./pacmconfig ensure 
+stdout 'Everything is up-to-date'
+
+exists ./bin/terraform ./bin/terraform_0.12.0 ./bin/terraform_0.11.13
+
+exec ./bin/terraform version
+stdout 'Terraform v0.12.0'
+
+exec pacm -f ./pacmconfig activate terraform@0.11.13
+
+exec ./bin/terraform version
+stdout 'Terraform v0.11.13'
+
+-- bin/.empty --
+-- pacmconfig --
+dir=./bin
+[terraform@0.12.0]
+	active=true
+[terraform@0.11.13]
