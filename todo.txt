@@ -1,6 +1,6 @@
+- Is it possible to remove the architecture mapping? Or maybe make it more implicit?
 - allow configurable remotes
-- run abitary shell commands on archived file after it has downloaded
-	- just add copy and chmod and maybe chown commands
-- logging
-	- adding verbose
+- logging: adding verbose
+	- what commands are being run
+	- what is being downloaded and installed
 - Concurrency when downloading packages
