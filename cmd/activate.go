@@ -16,7 +16,7 @@ var activateCmd = &cobra.Command{
 	Short: "Activate packages",
 	Run: func(cmd *cobra.Command, args []string) {
 		configPath, _ := cmd.Flags().GetString("config")
-		conf, err := config.Load(configPath)
+		conf, err := config.LoadWithoutDownload(configPath)
 		if err != nil {
 			fmt.Printf("error loading config: %v\n", err)
 			return

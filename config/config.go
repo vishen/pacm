@@ -41,6 +41,14 @@ func init() {
 }
 
 func Load(path string) (*Config, error) {
+	return load(path, true)
+}
+
+func LoadWithoutDownload(path string) (*Config, error) {
+	return load(path, false)
+}
+
+func load(path string, downloadResources bool) (*Config, error) {
 	if path == "" {
 		path = DefaultConfigPath
 	}
@@ -66,10 +74,12 @@ func Load(path string) (*Config, error) {
 		Packages: []*Package{},
 	}
 
-	// NOTE: This needs to go before the parsing of the config
-	// file since it will add recipes etc that can be overwritten.
-	if err := config.downloadRemoteRecipes(); err != nil {
-		return nil, err
+	if downloadResources {
+		// NOTE: This needs to go before the parsing of the config
+		// file since it will add recipes etc that can be overwritten.
+		if err := config.downloadRemoteRecipes(); err != nil {
+			return nil, err
+		}
 	}
 	if err := config.parseIniFile(config.iniFile); err != nil {
 		return nil, err
