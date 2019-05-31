@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"github.com/mitchellh/go-homedir"
+
+	"github.com/vishen/pacm/logging"
 )
 
 const cachePath = "~/.config/pacm/cache"
@@ -22,10 +24,12 @@ func LoadCache() (*Cache, error) {
 	if err != nil {
 		return nil, err
 	}
+	logging.PrintCommand("mkdirall %s 0755", cp)
 	if err := os.MkdirAll(cp, 0755); err != nil {
 		return nil, err
 	}
 
+	logging.PrintCommand("readdir %s", cp)
 	files, err := ioutil.ReadDir(cp)
 	if err != nil {
 		return nil, err
@@ -50,16 +54,17 @@ func (c Cache) LoadArchive(filename string) ([]byte, error) {
 
 func (c Cache) WriteArchive(filename string, data []byte) error {
 	outPath := filepath.Join(c.path, filename)
+	logging.PrintCommand("writefile %s 0644", outPath)
 	return ioutil.WriteFile(outPath, data, 0644)
 }
 
 func (c Cache) DownloadAndSave(url, filename string) ([]byte, error) {
+	logging.PrintCommand("HTTP GET %s", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	fmt.Printf("%s -> %s -- reading body\n", url, resp.Status)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("invalid response code for %s: %d", url, resp.StatusCode)

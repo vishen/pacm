@@ -23,6 +23,7 @@ import (
 	"gopkg.in/h2non/filetype.v1"
 
 	pacmcache "github.com/vishen/pacm/cache"
+	"github.com/vishen/pacm/logging"
 	"github.com/vishen/pacm/utils"
 )
 
@@ -58,6 +59,7 @@ func load(path string, downloadResources bool) (*Config, error) {
 		return nil, err
 	}
 
+	logging.PrintCommand("read config %s", configPath)
 	reader, err := os.Open(configPath)
 	if err != nil {
 		return nil, err
@@ -74,12 +76,10 @@ func load(path string, downloadResources bool) (*Config, error) {
 		Packages: []*Package{},
 	}
 
-	if downloadResources {
-		// NOTE: This needs to go before the parsing of the config
-		// file since it will add recipes etc that can be overwritten.
-		if err := config.downloadRemoteRecipes(); err != nil {
-			return nil, err
-		}
+	// NOTE: This needs to go before the parsing of the config
+	// file since it will add recipes etc that can be overwritten.
+	if err := config.downloadRemoteRecipes(downloadResources); err != nil {
+		return nil, err
 	}
 	if err := config.parseIniFile(config.iniFile); err != nil {
 		return nil, err
@@ -117,11 +117,12 @@ func (c *Config) parseIniFile(f *ini.File) error {
 	return nil
 }
 
-func (c *Config) downloadRemoteRecipes() error {
+func (c *Config) downloadRemoteRecipes(shouldDownload bool) error {
 	dir, err := homedir.Expand("~/.config/pacm/remote_recipes")
 	if err != nil {
 		return err
 	}
+	logging.PrintCommand("mkdirall %s 0755", dir)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -131,18 +132,21 @@ func (c *Config) downloadRemoteRecipes() error {
 
 	for _, remote := range remotes {
 		remoteFolder := filepath.Join(dir, strings.Replace(remote, "/", "_", -1))
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		defer cancel()
-		// Build the client
-		client := &getter.Client{
-			Ctx:  ctx,
-			Src:  remote,
-			Dst:  remoteFolder,
-			Pwd:  ".",
-			Mode: getter.ClientModeAny,
-		}
-		if err := client.Get(); err != nil {
-			return err
+		if shouldDownload {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+			// Build the client
+			client := &getter.Client{
+				Ctx:  ctx,
+				Src:  remote,
+				Dst:  remoteFolder,
+				Pwd:  ".",
+				Mode: getter.ClientModeAny,
+			}
+			logging.PrintCommand("go-getter %s", remote)
+			if err := client.Get(); err != nil {
+				return err
+			}
 		}
 		if err := c.handleRecipeFiles(remoteFolder); err != nil {
 			return err
@@ -157,6 +161,7 @@ func (c *Config) handleRecipeFiles(folder string) error {
 
 	// TODO: Probably a bad way to do this; if a folder has thousands of
 	// nested folders this will loop through them all...
+	logging.PrintCommand("readdir %s", folder)
 	files, err := ioutil.ReadDir(folder)
 	if err != nil {
 		return err
@@ -168,7 +173,9 @@ func (c *Config) handleRecipeFiles(folder string) error {
 				return err
 			}
 		} else if f.Name() == "recipe.ini" {
-			reader, err := os.Open(filepath.Join(folder, f.Name()))
+			recipePath := filepath.Join(folder, f.Name())
+			logging.PrintCommand("open recipe %s", recipePath)
+			reader, err := os.Open(recipePath)
 			if err != nil {
 				return err
 			}
@@ -388,6 +395,7 @@ func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, dat
 	filenameWithVersion := p.FilenameWithVersion(filename)
 	filenameWithVersionAndRecipe := fmt.Sprintf("%s_%s_%s", p.RecipeName, p.Version, filename)
 	path := filepath.Join(c.OutputDir, "_pacm")
+	logging.PrintCommand("mkdirall %s 0755", path)
 	os.MkdirAll(path, 0755)
 
 	outPath := filepath.Join(path, filenameWithVersionAndRecipe)
@@ -396,23 +404,28 @@ func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, dat
 
 	// This will overwrite the file, but not the file permissions, so we
 	// need to manually set them afterwards.
+	logging.PrintCommand("writefile %s %s", outPath, mode)
 	if err := ioutil.WriteFile(outPath, data, mode); err != nil {
 		return err
 	}
+	logging.PrintCommand("chmod %s %s", outPath, mode)
 	if err := os.Chmod(outPath, mode); err != nil {
 		return err
 	}
 
+	logging.PrintCommand("symlink %s -> %s", outPath, filenameWithVersion)
 	if err := c.SymlinkFile(outPath, filenameWithVersion); err != nil {
 		return err
 	}
 
 	if p.Active {
+		logging.PrintCommand("symlink %s -> %s", outPath, filename)
 		if err := c.SymlinkFile(outPath, filename); err != nil {
 			return err
 		}
 	}
 	if p.ExecutableName != "" {
+		logging.PrintCommand("symlink %s -> %s", outPath, p.ExecutableName)
 		if err := c.SymlinkFile(outPath, p.ExecutableName); err != nil {
 			return err
 		}
@@ -423,8 +436,10 @@ func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, dat
 func (c *Config) SymlinkFile(symlink, filename string) error {
 	symlinkPath := symlink
 	filePath := filepath.Join(c.OutputDir, filename)
+	logging.PrintCommand("remove %s", filePath)
 	os.Remove(filePath)
 	// OldName, NewName
+	logging.PrintCommand("symlink %s -> %s", symlinkPath, filePath)
 	if err := os.Symlink(symlinkPath, filePath); err != nil {
 		return err
 	}
@@ -433,9 +448,12 @@ func (c *Config) SymlinkFile(symlink, filename string) error {
 
 func (c *Config) CreatePackages(arch, OS string) error {
 	for _, i := range c.CurrentlyInstalled {
+		logging.PrintCommand("remove %s", i.AbsolutePath)
 		os.Remove(i.AbsolutePath)
 	}
-	os.RemoveAll(filepath.Join(c.OutputDir, "_pacm"))
+	pacmDir := filepath.Join(c.OutputDir, "_pacm")
+	logging.PrintCommand("removeall %s", pacmDir)
+	os.RemoveAll(pacmDir)
 	for _, p := range c.Packages {
 		if err := c.CreatePackage(arch, OS, p); err != nil {
 			return errors.Wrapf(err, "unable to create package %s@%s", p.RecipeName, p.Version)
@@ -577,6 +595,7 @@ func (c *Config) populateCurrentlyInstalled() error {
 	}
 
 	dir := c.OutputDir
+	logging.PrintCommand("readdir %s", dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
@@ -588,7 +607,9 @@ func (c *Config) populateCurrentlyInstalled() error {
 			continue
 		}
 		name := f.Name()
-		symlink, err := os.Readlink(filepath.Join(dir, name))
+		filePath := filepath.Join(dir, name)
+		logging.PrintCommand("readlink %s", filePath)
+		symlink, err := os.Readlink(filePath)
 		if err != nil {
 			return err
 		}

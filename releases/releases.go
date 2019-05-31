@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/vishen/pacm/logging"
 	"github.com/vishen/pacm/utils"
 )
 
@@ -26,6 +27,7 @@ type GithubRelease struct {
 }
 
 func GithubReleases(url string) ([]GithubRelease, error) {
+	logging.PrintCommand("HTTP GET %s", url)
 	res, err := http.Get(url)
 	if err != nil {
 		return nil, err
