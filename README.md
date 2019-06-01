@@ -65,6 +65,7 @@ Available Commands:
 Flags:
   -f, --config string   pacm config file to load (defaults to ~/.config/pacm/config)
   -h, --help            help for pacm
+  -x, --log-commands    log commands being run
 
 Use "pacm [command] --help" for more information about a command.
 ```
