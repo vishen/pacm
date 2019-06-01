@@ -27,6 +27,7 @@ var statusCmd = &cobra.Command{
 	Use:   "status <recipe1> <recipe2>",
 	Short: "Status of installed packages",
 	Run: func(cmd *cobra.Command, args []string) {
+		activateLogLevel(cmd)
 		configPath, _ := cmd.Flags().GetString("config")
 		conf, err := config.Load(configPath)
 		if err != nil {

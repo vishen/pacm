@@ -16,6 +16,7 @@ var listUpdatesCmd = &cobra.Command{
 	Short: "Available updates for installed package",
 	Run: func(cmd *cobra.Command, args []string) {
 
+		activateLogLevel(cmd)
 		showAll := len(args) == 0
 
 		configPath, _ := cmd.Flags().GetString("config")

@@ -26,4 +26,5 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringP("config", "f", "", "pacm config file to load (defaults to ~/.config/pacm/config)")
+	rootCmd.PersistentFlags().BoolP("log-commands", "x", false, "log commands being run")
 }

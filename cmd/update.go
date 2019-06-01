@@ -14,6 +14,7 @@ var updateCmd = &cobra.Command{
 	Use:   "update <recipe>@<version> <recipe>@<version>",
 	Short: "Update packages",
 	Run: func(cmd *cobra.Command, args []string) {
+		activateLogLevel(cmd)
 		configPath, _ := cmd.Flags().GetString("config")
 		conf, err := config.Load(configPath)
 		if err != nil {

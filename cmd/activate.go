@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vishen/pacm/config"
+	"github.com/vishen/pacm/logging"
 )
 
 // activateCmd represents the activate command
@@ -15,6 +16,7 @@ var activateCmd = &cobra.Command{
 	Use:   "activate <recipe>@<version> <recipe>@<version>",
 	Short: "Activate packages",
 	Run: func(cmd *cobra.Command, args []string) {
+		activateLogLevel(cmd)
 		configPath, _ := cmd.Flags().GetString("config")
 		conf, err := config.LoadWithoutDownload(configPath)
 		if err != nil {
@@ -37,6 +39,10 @@ var activateCmd = &cobra.Command{
 			}
 		}
 	},
+}
+
+func activateLogLevel(cmd *cobra.Command) {
+	logging.ShouldPrintCommands, _ = cmd.Flags().GetBool("log-commands")
 }
 
 // TODO: move to a utils?

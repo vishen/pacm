@@ -13,6 +13,7 @@ var ensureCmd = &cobra.Command{
 	Use:   "ensure",
 	Short: "Ensure that your binaries are up-to-date",
 	Run: func(cmd *cobra.Command, args []string) {
+		activateLogLevel(cmd)
 		configPath, _ := cmd.Flags().GetString("config")
 		conf, err := config.Load(configPath)
 		if err != nil {
