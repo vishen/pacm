@@ -35,20 +35,19 @@ var updateCmd = &cobra.Command{
 			// TODO: HACK: Dumb hack to remove leading 'v' from the version since most
 			// recipes don't have the v. THIS IS NOT A FIX, and won't always
 			// work.
-			recipe := parts[1]
-			if len(recipe) > 0 && recipe[0] == 'v' {
-				recipe = recipe[1:]
+			version := parts[1]
+			if len(version) > 0 && version[0] == 'v' {
+				version = version[1:]
 			}
 
-			if err := conf.AddPackage(currentArch, currentOS, parts[0], recipe); err != nil {
+			if err := conf.AddPackage(currentArch, currentOS, parts[0], version); err != nil {
 				fmt.Printf("unable to add package %q: %v\n", recipeAndVersion, err)
 				return
 			}
-		}
-		// TODO: Should only do the unlinking and linking of packages.
-		if err := conf.CreatePackages(currentArch, currentOS); err != nil {
-			fmt.Printf("error downloading and installing packages: %v", err)
-			return
+			if err := conf.CreatePackagesForRecipe(parts[0], currentArch, currentOS); err != nil {
+				fmt.Printf("error downloading and installing packages: %v", err)
+				return
+			}
 		}
 	},
 }

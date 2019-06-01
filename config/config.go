@@ -352,6 +352,7 @@ func (c *Config) MakePackageActive(p *Package) error {
 	}
 	p.Active = true
 	p.iniSection.SetKey("active", "true")
+	logging.PrintCommand("write to config %s", c.filename)
 	if err := c.iniFile.Write(c.filename); err != nil {
 		return errors.Wrap(err, "unable to save config file")
 	}
@@ -396,10 +397,11 @@ func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, dat
 	filenameWithVersionAndRecipe := fmt.Sprintf("%s_%s_%s", p.RecipeName, p.Version, filename)
 	path := filepath.Join(c.OutputDir, "_pacm")
 	logging.PrintCommand("mkdirall %s 0755", path)
+	// TODO: Do this only once per run if possible, currently it does this
+	// everytime we write a new package to disk and it just seems wasteful.
 	os.MkdirAll(path, 0755)
 
 	outPath := filepath.Join(path, filenameWithVersionAndRecipe)
-	// Need to symlink absolute path for Macos, possibly the same for linux?
 	outPath, _ = filepath.Abs(outPath)
 
 	// This will overwrite the file, but not the file permissions, so we
@@ -438,7 +440,6 @@ func (c *Config) SymlinkFile(symlink, filename string) error {
 	filePath := filepath.Join(c.OutputDir, filename)
 	logging.PrintCommand("remove %s", filePath)
 	os.Remove(filePath)
-	// OldName, NewName
 	logging.PrintCommand("symlink %s -> %s", symlinkPath, filePath)
 	if err := os.Symlink(symlinkPath, filePath); err != nil {
 		return err
@@ -455,6 +456,18 @@ func (c *Config) CreatePackages(arch, OS string) error {
 	logging.PrintCommand("removeall %s", pacmDir)
 	os.RemoveAll(pacmDir)
 	for _, p := range c.Packages {
+		if err := c.CreatePackage(arch, OS, p); err != nil {
+			return errors.Wrapf(err, "unable to create package %s@%s", p.RecipeName, p.Version)
+		}
+	}
+	return nil
+}
+
+func (c *Config) CreatePackagesForRecipe(recipeName, arch, OS string) error {
+	for _, p := range c.Packages {
+		if p.RecipeName != recipeName {
+			continue
+		}
 		if err := c.CreatePackage(arch, OS, p); err != nil {
 			return errors.Wrapf(err, "unable to create package %s@%s", p.RecipeName, p.Version)
 		}

@@ -31,11 +31,10 @@ var activateCmd = &cobra.Command{
 				log.Fatal(err)
 			}
 			conf.MakePackageActive(pkg)
-		}
-		// TODO: Should only do the unlinking and linking of packages.
-		if err := conf.CreatePackages(runtime.GOARCH, runtime.GOOS); err != nil {
-			fmt.Printf("error downloading and installing packages: %v", err)
-			return
+			if err := conf.CreatePackagesForRecipe(pkg.RecipeName, runtime.GOARCH, runtime.GOOS); err != nil {
+				fmt.Printf("error downloading and installing packages: %v", err)
+				return
+			}
 		}
 	},
 }
