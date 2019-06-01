@@ -609,6 +609,11 @@ func (c *Config) populateCurrentlyInstalled() error {
 
 	dir := c.OutputDir
 	logging.PrintCommand("readdir %s", dir)
+	// TODO: Move this somewhere better.
+	if dir == "" {
+		return fmt.Errorf("no 'dir' set in config file")
+	}
+
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
