@@ -1,4 +1,3 @@
-- Is it possible to remove the architecture mapping? Or maybe make it more implicit?
 - allow configurable remotes
 - Concurrency when downloading packages
 - Show sizes on disk?
