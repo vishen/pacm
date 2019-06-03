@@ -10,6 +10,17 @@ import (
 	"strings"
 )
 
+var (
+	osAlternatives = map[string]string{
+		"darwin": "osx",
+	}
+
+	archAlternatives = map[string]string{
+		"amd64": "x86_64",
+		"386":   "x86_32",
+	}
+)
+
 type Recipe struct {
 	Name string
 	URL  string
@@ -22,11 +33,25 @@ type Recipe struct {
 
 	ReleasesGithub string
 
+	// This is only used for mapping archs and os strings to
+	// other variations.
 	AvailableArchOS map[string]string
 
 	// NOT YET IMPLEMENTED
 	ChecksumType string
 	Checksum     string
+}
+
+func (r Recipe) archAndOSAlternatives(arch, os string) (string, string) {
+	archAlt := archAlternatives[arch]
+	if archAlt == "" {
+		archAlt = arch
+	}
+	osAlt := osAlternatives[os]
+	if osAlt == "" {
+		osAlt = os
+	}
+	return archAlt, osAlt
 }
 
 func (r Recipe) generateURL(arch, os, packageVersion string) (string, error) {
@@ -35,15 +60,29 @@ func (r Recipe) generateURL(arch, os, packageVersion string) (string, error) {
 		return "", err
 	}
 
-	arch, os = r.MappedArchOS(arch, os)
+	// Get any mapped arch and os from a recipe and provide
+	// to the recipe template.
+	mappedArch, mappedOS := r.MappedArchOS(arch, os)
+
+	// Get any predefined alternatives to the arch and os.
+	altArch, altOS := r.archAndOSAlternatives(arch, os)
+
 	td := struct {
-		Version string
-		OS      string
-		Arch    string
+		Version    string
+		OS         string
+		OSAlt      string
+		OSMapped   string
+		Arch       string
+		ArchAlt    string
+		ArchMapped string
 	}{
-		Version: packageVersion,
-		OS:      os,
-		Arch:    arch,
+		Version:    packageVersion,
+		OS:         os,
+		OSAlt:      altOS,
+		OSMapped:   mappedOS,
+		Arch:       arch,
+		ArchAlt:    altArch,
+		ArchMapped: mappedArch,
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, td); err != nil {
