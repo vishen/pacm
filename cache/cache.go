@@ -80,3 +80,7 @@ func (c Cache) DownloadAndSave(url, filename string) ([]byte, error) {
 	}
 	return b, nil
 }
+
+func (c Cache) ArchiveFullPath(archive string) string {
+	return filepath.Join(c.path, archive)
+}

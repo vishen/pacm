@@ -1,5 +1,4 @@
 - Is it possible to remove the architecture mapping? Or maybe make it more implicit?
-- add a clean / delete package or recipe command?
-	- this should remove all files and cached downloads.
 - allow configurable remotes
 - Concurrency when downloading packages
+- Show sizes on disk?

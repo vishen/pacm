@@ -41,6 +41,25 @@ func init() {
 	}
 }
 
+type Installed struct {
+	Filename            string
+	AbsolutePath        string
+	SymlinkAbsolutePath string
+	ModTime             time.Time
+}
+
+type Config struct {
+	iniFile  *ini.File
+	filename string
+
+	OutputDir string
+
+	Recipes  []Recipe
+	Packages []*Package
+
+	CurrentlyInstalled []Installed
+}
+
 func Load(path string) (*Config, error) {
 	return load(path, true)
 }
@@ -283,25 +302,6 @@ func (c *Config) handlePackage(section *parser.Section) error {
 	return nil
 }
 
-type Installed struct {
-	Filename            string
-	AbsolutePath        string
-	SymlinkAbsolutePath string
-	ModTime             time.Time
-}
-
-type Config struct {
-	iniFile  *ini.File
-	filename string
-
-	OutputDir string
-
-	Recipes  []Recipe
-	Packages []*Package
-
-	CurrentlyInstalled []Installed
-}
-
 func (c *Config) AddPackage(arch, OS, recipeName, version string) error {
 	// Check if the package is already installed.
 	for _, p := range c.Packages {
@@ -500,6 +500,27 @@ func (c *Config) getCachedOrDownload(arch, OS string, r Recipe, packageVersion s
 		}
 	}
 	return b, nil
+}
+
+func (c *Config) RemoveUnusedCachedArchivePackages(arch, OS string) {
+	cachedArchives := cache.Archives
+	usedArchives := map[string]bool{}
+	for _, p := range c.Packages {
+		r := c.RecipeForPackage(p)
+		archivePath := c.generateArchivePath(arch, OS, r, p.Version)
+		if ok := cachedArchives[archivePath]; ok {
+			usedArchives[archivePath] = true
+		}
+	}
+	for ap := range cachedArchives {
+		if ok := usedArchives[ap]; ok {
+			continue
+		}
+		filePath := cache.ArchiveFullPath(ap)
+		// Delete the unused archives
+		logging.PrintCommand("remove %s", filePath)
+		os.Remove(filePath)
+	}
 }
 
 func (c *Config) CreatePackage(arch, OS string, p *Package) error {

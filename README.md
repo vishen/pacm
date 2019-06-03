@@ -56,6 +56,7 @@ Usage:
 
 Available Commands:
   activate     Activate packages
+  clean        Clean up cached archives
   ensure       Ensure that your binaries are up-to-date
   help         Help about any command
   list-updates Available updates for installed package
