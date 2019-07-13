@@ -20,6 +20,7 @@ import (
 	"github.com/knq/ini/parser"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
+	"github.com/xi2/xz"
 	"gopkg.in/h2non/filetype.v1"
 
 	pacmcache "github.com/vishen/pacm/cache"
@@ -560,8 +561,49 @@ func (c *Config) CreatePackage(arch, OS string, p *Package) error {
 		if err := c.writeGZ(r, p, buf); err != nil {
 			return err
 		}
+	case "xz":
+		if err := c.writeXZ(r, p, buf); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unsupported archive %s", t)
+	}
+	return nil
+}
+
+func (c *Config) writeXZ(r Recipe, p *Package, buf io.Reader) error {
+	xzrdr, err := xz.NewReader(buf, 0)
+	if err != nil {
+		return err
+	}
+	// TODO: This is duplicated from writeGZ functions, need
+	// to refactor. Should be easy since both are identical.
+	rdr := tar.NewReader(xzrdr)
+	for {
+		hdr, err := rdr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if !utils.ShouldExtract(hdr.Name, r.ExtractPaths) {
+			continue
+		}
+		// TODO: Need to follow symlinks somehow!
+		b, err := ioutil.ReadAll(rdr)
+		if err != nil {
+			return err
+		}
+		isExec := utils.IsExecutable(bytes.NewReader(b))
+		if !isExec {
+			continue
+		}
+		fmt.Println("Is executable")
+		fi := hdr.FileInfo()
+		if err := c.WritePackage(p, fi.Name(), fi.Mode(), b); err != nil {
+			return err
+		}
 	}
 	return nil
 }
