@@ -1,6 +1,8 @@
 package logging
 
-import "log"
+import (
+	"log"
+)
 
 var (
 	ShouldPrintCommands = false
@@ -11,4 +13,8 @@ func PrintCommand(msg string, args ...interface{}) {
 		return
 	}
 	log.Printf(msg, args...)
+}
+
+func ErrorLog(msg string, args ...interface{}) {
+	log.Printf("[error] "+msg, args...)
 }
