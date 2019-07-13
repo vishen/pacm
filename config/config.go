@@ -455,12 +455,19 @@ func (c *Config) CreatePackages(arch, OS string) error {
 	pacmDir := filepath.Join(c.OutputDir, "_pacm")
 	logging.PrintCommand("removeall %s", pacmDir)
 	os.RemoveAll(pacmDir)
+	failed := 0
 	for _, p := range c.Packages {
 		if err := c.CreatePackage(arch, OS, p); err != nil {
-			return errors.Wrapf(err, "unable to create package %s@%s", p.RecipeName, p.Version)
+			logging.ErrorLog("unable to create package %s@%s: %v", p.RecipeName, p.Version, err)
+			failed += 1
+			continue
 		}
 	}
-	return nil
+	if failed == 0 {
+		return nil
+	} else {
+		return fmt.Errorf("%d package(s) failed to install", failed)
+	}
 }
 
 func (c *Config) CreatePackagesForRecipe(recipeName, arch, OS string) error {
