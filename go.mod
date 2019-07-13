@@ -14,6 +14,7 @@ require (
 	github.com/rogpeppe/go-internal v1.1.0
 	github.com/spf13/cobra v0.0.4
 	github.com/stretchr/testify v1.3.0 // indirect
+	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8
 	golang.org/x/net v0.0.0-20190522155817-f3200d17e092 // indirect
 	golang.org/x/oauth2 v0.0.0-20190523182746-aaccbc9213b0 // indirect
 	golang.org/x/sys v0.0.0-20190524152521-dbbf3f1254d4 // indirect
