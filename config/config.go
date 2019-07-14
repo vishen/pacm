@@ -576,6 +576,7 @@ func (c *Config) writeXZ(r Recipe, p *Package, buf io.Reader) error {
 	if err != nil {
 		return err
 	}
+	symlinkNames := map[string]string{}
 	// TODO: This is duplicated from writeGZ functions, need
 	// to refactor. Should be easy since both are identical.
 	rdr := tar.NewReader(xzrdr)
@@ -587,24 +588,25 @@ func (c *Config) writeXZ(r Recipe, p *Package, buf io.Reader) error {
 		if err != nil {
 			return err
 		}
-		if !utils.ShouldExtract(hdr.Name, r.ExtractPaths) {
-			continue
-		}
-		// TODO: Need to follow symlinks somehow!
 		b, err := ioutil.ReadAll(rdr)
 		if err != nil {
 			return err
+		}
+		fi := hdr.FileInfo()
+		if hdr.Linkname != "" {
+			fmt.Printf("hdr=%#v\n", hdr)
+			symlinkNames[hdr.Linkname] = fi.Name()
+			continue
 		}
 		isExec := utils.IsExecutable(bytes.NewReader(b))
 		if !isExec {
 			continue
 		}
-		fmt.Println("Is executable")
-		fi := hdr.FileInfo()
 		if err := c.WritePackage(p, fi.Name(), fi.Mode(), b); err != nil {
 			return err
 		}
 	}
+	fmt.Printf("SYMLINK NEEDED: %#v\n", symlinkNames)
 	return nil
 }
 
