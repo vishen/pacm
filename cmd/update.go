@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/vishen/pacm/config"
 )
 
 // updateCmd represents the update command
@@ -14,15 +13,13 @@ var updateCmd = &cobra.Command{
 	Use:   "update <recipe>@<version> <recipe>@<version>",
 	Short: "Update packages",
 	Run: func(cmd *cobra.Command, args []string) {
-		activateLogLevel(cmd)
-		configPath, _ := cmd.Flags().GetString("config")
-		conf, err := config.Load(configPath)
-		if err != nil {
-			fmt.Printf("error loading config: %v\n", err)
-			return
-		}
 		if len(args) == 0 {
 			fmt.Printf("need <recipe>@<version>'s to make active\n")
+			return
+		}
+		conf, err := getConfig(cmd)
+		if err != nil {
+			fmt.Printf("unable to load config: %v\n", err)
 			return
 		}
 		currentArch := runtime.GOARCH

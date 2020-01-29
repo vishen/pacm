@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/vishen/pacm/logging"
 )
 
 var (
@@ -96,7 +98,7 @@ func ShouldExtract(path string, extractPaths []string) bool {
 func IsExecutable(r io.ReaderAt) bool {
 	currentArch := runtime.GOARCH
 	currentOS := runtime.GOOS
-
+	logging.DebugLog("is exec for arch=%s os=%s\n", currentArch, currentOS)
 	switch currentOS {
 	case "darwin":
 		m, err := macho.NewFile(r)
@@ -123,10 +125,12 @@ func IsExecutable(r io.ReaderAt) bool {
 	case "linux", "dragonfly", "freebsd", "openbsd", "solaris", "netbsd":
 		e, err := elf.NewFile(r)
 		if err != nil {
+			logging.DebugLog("unable to extract elf headers: %v\n", err)
 			return false
 		}
 		// Is is an executable type
-		if e.Type != elf.ET_REL && e.Type != elf.ET_EXEC {
+		if e.Type != elf.ET_REL && e.Type != elf.ET_EXEC && e.Type != elf.ET_DYN {
+			logging.DebugLog("not an executable %q", e.Type)
 			return false
 		}
 
@@ -145,7 +149,7 @@ func IsExecutable(r io.ReaderAt) bool {
 			return e.Machine == elf.EM_PPC64
 		}
 	default:
-		// TODO: This should return an error about a not-supported architecture.
+		logging.ErrorLog("unsupported OS %q\n", currentOS)
 		return false
 	}
 	return false

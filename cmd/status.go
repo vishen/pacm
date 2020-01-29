@@ -9,7 +9,6 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
-	"github.com/vishen/pacm/config"
 	"github.com/vishen/pacm/utils"
 )
 
@@ -27,15 +26,13 @@ var statusCmd = &cobra.Command{
 	Use:   "status <recipe1> <recipe2>",
 	Short: "Status of installed packages",
 	Run: func(cmd *cobra.Command, args []string) {
-		activateLogLevel(cmd)
-		configPath, _ := cmd.Flags().GetString("config")
-		conf, err := config.Load(configPath)
+		conf, err := getConfig(cmd)
 		if err != nil {
-			fmt.Printf("error loading config: %v\n", err)
+			fmt.Printf("unable to load config: %v\n", err)
 			return
 		}
 
-		verbose, _ := cmd.Flags().GetBool("verbose")
+		showMore, _ := cmd.Flags().GetBool("show-more")
 
 		sortedPackages := conf.Packages
 		sort.Slice(sortedPackages, func(i, j int) bool {
@@ -94,7 +91,7 @@ var statusCmd = &cobra.Command{
 			table.SetHeader([]string{"recipe", "version", "active", "error"})
 			headerLength = 4
 		} else {
-			if !verbose {
+			if !showMore {
 				table.SetHeader([]string{"recipe", "version", "active"})
 				headerLength = 3
 			} else {
@@ -111,7 +108,7 @@ var statusCmd = &cobra.Command{
 			}
 			if foundError {
 				d[3] = s.err
-			} else if verbose {
+			} else if showMore {
 				d[3] = fmt.Sprintf("%s", s.modtime)
 				d[4] = s.path
 			}
@@ -123,5 +120,5 @@ var statusCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
-	statusCmd.Flags().BoolP("verbose", "v", false, "display more information about what is installed")
+	statusCmd.Flags().Bool("show-more", false, "display more information about what is installed")
 }

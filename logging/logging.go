@@ -6,6 +6,7 @@ import (
 
 var (
 	ShouldPrintCommands = false
+	Debug               = false
 )
 
 func PrintCommand(msg string, args ...interface{}) {
@@ -17,4 +18,10 @@ func PrintCommand(msg string, args ...interface{}) {
 
 func ErrorLog(msg string, args ...interface{}) {
 	log.Printf("[error] "+msg, args...)
+}
+
+func DebugLog(msg string, args ...interface{}) {
+	if Debug {
+		log.Printf("[debug] "+msg, args...)
+	}
 }

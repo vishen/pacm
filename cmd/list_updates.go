@@ -6,7 +6,6 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
-	"github.com/vishen/pacm/config"
 	"github.com/vishen/pacm/releases"
 )
 
@@ -15,17 +14,12 @@ var listUpdatesCmd = &cobra.Command{
 	Use:   "list-updates <recipe1> <recipe2>",
 	Short: "Available updates for installed package",
 	Run: func(cmd *cobra.Command, args []string) {
-
-		activateLogLevel(cmd)
-		showAll := len(args) == 0
-
-		configPath, _ := cmd.Flags().GetString("config")
-		conf, err := config.Load(configPath)
+		conf, err := getConfig(cmd)
 		if err != nil {
-			fmt.Printf("error loading config: %v\n", err)
+			fmt.Printf("unable to load config: %v\n", err)
 			return
 		}
-
+		showAll := len(args) == 0
 		foundRecipe := false
 		for _, r := range conf.Recipes {
 			if r.ReleasesGithub == "" {

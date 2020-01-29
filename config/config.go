@@ -588,9 +588,11 @@ func (c *Config) writeXZ(r Recipe, p *Package, buf io.Reader) error {
 			return err
 		}
 		if !utils.ShouldExtract(hdr.Name, r.ExtractPaths) {
+			logging.DebugLog("%s: should not extract\n", hdr.Name)
 			continue
 		}
-		// TODO: Need to follow symlinks somehow!
+		logging.DebugLog("%s: should attempt to extract\n", hdr.Name)
+		// TODO: Need to follow symlinks somehow! Or do we... why would we follow symlinks?
 		b, err := ioutil.ReadAll(rdr)
 		if err != nil {
 			return err
@@ -599,7 +601,6 @@ func (c *Config) writeXZ(r Recipe, p *Package, buf io.Reader) error {
 		if !isExec {
 			continue
 		}
-		fmt.Println("Is executable")
 		fi := hdr.FileInfo()
 		if err := c.WritePackage(p, fi.Name(), fi.Mode(), b); err != nil {
 			return err
@@ -625,6 +626,11 @@ func (c *Config) writeGZ(r Recipe, p *Package, buf io.Reader) error {
 		if !utils.ShouldExtract(hdr.Name, r.ExtractPaths) {
 			continue
 		}
+		if !utils.ShouldExtract(hdr.Name, r.ExtractPaths) {
+			logging.DebugLog("%s: should not extract\n", hdr.Name)
+			continue
+		}
+		logging.DebugLog("%s: should attempt to extract\n", hdr.Name)
 		b, err := ioutil.ReadAll(rdr)
 		if err != nil {
 			return err
@@ -648,8 +654,10 @@ func (c *Config) writeZIP(r Recipe, p *Package, buf io.ReaderAt, bufLen int64) e
 	}
 	for _, f := range rdr.File {
 		if !utils.ShouldExtract(f.Name, r.ExtractPaths) {
+			logging.DebugLog("%s: should not extract\n", f.Name)
 			continue
 		}
+		logging.DebugLog("%s: should attempt to extract\n", f.Name)
 		rc, err := f.Open()
 		if err != nil {
 			return err

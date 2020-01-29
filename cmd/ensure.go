@@ -5,7 +5,6 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
-	"github.com/vishen/pacm/config"
 )
 
 // ensureCmd represents the ensure command
@@ -13,11 +12,9 @@ var ensureCmd = &cobra.Command{
 	Use:   "ensure",
 	Short: "Ensure that your binaries are up-to-date",
 	Run: func(cmd *cobra.Command, args []string) {
-		activateLogLevel(cmd)
-		configPath, _ := cmd.Flags().GetString("config")
-		conf, err := config.Load(configPath)
+		conf, err := getConfig(cmd)
 		if err != nil {
-			fmt.Printf("error loading config: %v\n", err)
+			fmt.Printf("unable to load config: %v\n", err)
 			return
 		}
 		if err := conf.CreatePackages(runtime.GOARCH, runtime.GOOS); err != nil {
