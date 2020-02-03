@@ -71,28 +71,55 @@ func ShouldExtract(path string, extractPaths []string) bool {
 	if len(shouldExtractPaths) == 0 {
 		shouldExtractPaths = defaultExtractPaths
 	}
+	return CheckPathInPaths(path, shouldExtractPaths)
+}
 
+func ShouldExtractLibrary(path string, libraryPaths []string) bool {
+	return CheckPathInPaths(path, libraryPaths)
+}
+
+func NormalizePath(path string, paths []string) string {
+	_, index := checkPathInPaths(path, paths)
+	pathSplit := strings.Split(path, "/")
+	validPath := strings.Split(paths[index], "/")
+	startPath := 0
+	for _, vp := range validPath {
+		if vp != "*" {
+			break
+		}
+		startPath += 1
+	}
+	return strings.Join(pathSplit[startPath:], "/")
+}
+
+func CheckPathInPaths(path string, paths []string) bool {
+	inPath, _ := checkPathInPaths(path, paths)
+	return inPath
+}
+
+func checkPathInPaths(path string, paths []string) (bool, int) {
 	// TODO: There is likely a much better way to do this.
 	pathSplit := strings.Split(path, "/")
-	shouldExtract := false
-	for _, wp := range shouldExtractPaths {
-		wpSplit := strings.Split(wp, "/")
-		if len(pathSplit) != len(wpSplit) {
+	inPaths := false
+	index := 0
+	for i, wp := range paths {
+		wpSplit := strings.Split(strings.Trim(wp, "/"), "/")
+		if len(pathSplit) < len(wpSplit) {
 			continue
 		}
-
-		shouldExtract = true
+		inPaths = true
 		for i, wpi := range wpSplit {
 			if wpi != "*" && wpi != pathSplit[i] {
-				shouldExtract = false
+				inPaths = false
 				break
 			}
 		}
-		if shouldExtract {
+		if inPaths {
+			index = i
 			break
 		}
 	}
-	return shouldExtract
+	return inPaths, index
 }
 
 func IsExecutable(r io.ReaderAt) bool {

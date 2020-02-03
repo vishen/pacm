@@ -25,11 +25,13 @@ type Recipe struct {
 	Name string
 	URL  string
 
-	// TODO: Consolidate these two fields? One implies the other.
+	// TODO: Consolidate these two fields? One implies the other. Are
+	// they even needed? Why?
 	IsBinary   bool
 	BinaryName string
 
 	ExtractPaths []string
+	LibraryPaths []string
 
 	ReleasesGithub string
 

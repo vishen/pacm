@@ -1,7 +1,7 @@
 env HOME=$WORK/home
 
 exec pacm -f invalid-config-file ensure
-stdout 'error loading config: open invalid-config-file: no such file or directory'
+stdout 'unable to load config: open invalid-config-file: no such file or directory'
 
 exec pacm -f ./pacmconfig ensure 
 stdout 'Everything is up-to-date'

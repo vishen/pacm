@@ -1,3 +1,7 @@
-- allow configurable remotes
+- Allow copying of files along with a the binary:
+	- Change _pacm to contain folders, not the binaries, and each folder has the binary
+	- Change the symlink to go to the new binary in a folder
+	- Create configuration to allow extracting files / folders from a package into the new folder.
+
 - Concurrency when downloading packages
 - Show sizes on disk?

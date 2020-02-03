@@ -12,7 +12,12 @@ import (
 func getConfig(cmd *cobra.Command) (*config.Config, error) {
 	activateLogLevel(cmd)
 	configPath, _ := cmd.Flags().GetString("config")
-	return config.LoadWithoutDownload(configPath)
+	downloadRemotes, _ := cmd.Flags().GetBool("download-remotes")
+	if downloadRemotes {
+		return config.Load(configPath)
+	} else {
+		return config.LoadWithoutDownload(configPath)
+	}
 }
 
 func activateLogLevel(cmd *cobra.Command) {

@@ -64,9 +64,11 @@ Available Commands:
   update       Update packages
 
 Flags:
-  -f, --config string   pacm config file to load (defaults to ~/.config/pacm/config)
-  -h, --help            help for pacm
-  -x, --log-commands    log commands being run
+  -f, --config string      pacm config file to load (defaults to ~/.config/pacm/config)
+  -d, --download-remotes   download remote package repositories
+  -h, --help               help for pacm
+  -x, --log-commands       log commands being run
+  -v, --verbose            verbose debug logging
 
 Use "pacm [command] --help" for more information about a command.
 ```

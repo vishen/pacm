@@ -15,13 +15,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/h2non/filetype"
 	getter "github.com/hashicorp/go-getter"
 	"github.com/knq/ini"
 	"github.com/knq/ini/parser"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/xi2/xz"
-	"gopkg.in/h2non/filetype.v1"
 
 	pacmcache "github.com/vishen/pacm/cache"
 	"github.com/vishen/pacm/logging"
@@ -153,6 +153,8 @@ func (c *Config) downloadRemoteRecipes(shouldDownload bool) error {
 	for _, remote := range remotes {
 		remoteFolder := filepath.Join(dir, strings.Replace(remote, "/", "_", -1))
 		if shouldDownload {
+			logging.PrintCommand("removeall %s", remoteFolder)
+			os.RemoveAll(remoteFolder)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 			defer cancel()
 			// Build the client
@@ -250,6 +252,8 @@ func (c *Config) handleRecipe(section *parser.Section) error {
 			r.ExtractPaths = strings.Split(v, ",")
 		case "releases_github":
 			r.ReleasesGithub = v
+		case "library_paths":
+			r.LibraryPaths = strings.Split(v, ",")
 		default:
 			if utils.IsValidOSArchPair(k) {
 				r.AvailableArchOS[k] = v
@@ -393,7 +397,57 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func (c *Config) WriteLibrary(p *Package, filename string, isDir bool, mode os.FileMode, data []byte) error {
+	outPath := filepath.Join(c.OutputDir, fmt.Sprintf("_pacm/%s_%s", p.RecipeName, p.Version))
+	outPath, _ = filepath.Abs(outPath)
+	libraryPath := filepath.Join(outPath, filename)
+	if isDir {
+		logging.PrintCommand("mkdirall+writingfiles %s 0755", libraryPath)
+		return os.MkdirAll(libraryPath, 0755)
+	}
+	return ioutil.WriteFile(libraryPath, data, mode)
+}
+
 func (c *Config) WritePackage(p *Package, filename string, mode os.FileMode, data []byte) error {
+	outPath := filepath.Join(c.OutputDir, fmt.Sprintf("_pacm/%s_%s", p.RecipeName, p.Version))
+	outPath, _ = filepath.Abs(outPath)
+	logging.PrintCommand("mkdirall %s 0755", outPath)
+	os.MkdirAll(outPath, 0755)
+
+	binaryFilepath := filepath.Join(outPath, filename)
+
+	// This will overwrite the file, but not the file permissions, so we
+	// need to manually set them afterwards.
+	logging.PrintCommand("writefile %s %s", binaryFilepath, mode)
+	if err := ioutil.WriteFile(binaryFilepath, data, mode); err != nil {
+		return err
+	}
+	logging.PrintCommand("chmod %s %s", binaryFilepath, mode)
+	if err := os.Chmod(binaryFilepath, mode); err != nil {
+		return err
+	}
+
+	filenameWithVersion := fmt.Sprintf("%s_%s", filename, p.Version)
+	logging.PrintCommand("symlink %s -> %s", binaryFilepath, filenameWithVersion)
+	if err := c.SymlinkFile(binaryFilepath, filenameWithVersion); err != nil {
+		return err
+	}
+
+	if p.Active {
+		logging.PrintCommand("symlink %s -> %s", binaryFilepath, filename)
+		if err := c.SymlinkFile(binaryFilepath, filename); err != nil {
+			return err
+		}
+	}
+	if p.ExecutableName != "" {
+		logging.PrintCommand("symlink %s -> %s", binaryFilepath, p.ExecutableName)
+		if err := c.SymlinkFile(binaryFilepath, p.ExecutableName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (c *Config) WritePackageOld(p *Package, filename string, mode os.FileMode, data []byte) error {
 	filenameWithVersion := p.FilenameWithVersion(filename)
 	filenameWithVersionAndRecipe := fmt.Sprintf("%s_%s_%s", p.RecipeName, p.Version, filename)
 	path := filepath.Join(c.OutputDir, "_pacm")
@@ -587,22 +641,7 @@ func (c *Config) writeXZ(r Recipe, p *Package, buf io.Reader) error {
 		if err != nil {
 			return err
 		}
-		if !utils.ShouldExtract(hdr.Name, r.ExtractPaths) {
-			logging.DebugLog("%s: should not extract\n", hdr.Name)
-			continue
-		}
-		logging.DebugLog("%s: should attempt to extract\n", hdr.Name)
-		// TODO: Need to follow symlinks somehow! Or do we... why would we follow symlinks?
-		b, err := ioutil.ReadAll(rdr)
-		if err != nil {
-			return err
-		}
-		isExec := utils.IsExecutable(bytes.NewReader(b))
-		if !isExec {
-			continue
-		}
-		fi := hdr.FileInfo()
-		if err := c.WritePackage(p, fi.Name(), fi.Mode(), b); err != nil {
+		if err := c.extractForPackage(r, p, hdr.Name, hdr.FileInfo(), rdr); err != nil {
 			return err
 		}
 	}
@@ -623,24 +662,7 @@ func (c *Config) writeGZ(r Recipe, p *Package, buf io.Reader) error {
 		if err != nil {
 			return err
 		}
-		if !utils.ShouldExtract(hdr.Name, r.ExtractPaths) {
-			continue
-		}
-		if !utils.ShouldExtract(hdr.Name, r.ExtractPaths) {
-			logging.DebugLog("%s: should not extract\n", hdr.Name)
-			continue
-		}
-		logging.DebugLog("%s: should attempt to extract\n", hdr.Name)
-		b, err := ioutil.ReadAll(rdr)
-		if err != nil {
-			return err
-		}
-		isExec := utils.IsExecutable(bytes.NewReader(b))
-		if !isExec {
-			continue
-		}
-		fi := hdr.FileInfo()
-		if err := c.WritePackage(p, fi.Name(), fi.Mode(), b); err != nil {
+		if err := c.extractForPackage(r, p, hdr.Name, hdr.FileInfo(), rdr); err != nil {
 			return err
 		}
 	}
@@ -653,28 +675,40 @@ func (c *Config) writeZIP(r Recipe, p *Package, buf io.ReaderAt, bufLen int64) e
 		return err
 	}
 	for _, f := range rdr.File {
-		if !utils.ShouldExtract(f.Name, r.ExtractPaths) {
-			logging.DebugLog("%s: should not extract\n", f.Name)
-			continue
-		}
-		logging.DebugLog("%s: should attempt to extract\n", f.Name)
 		rc, err := f.Open()
 		if err != nil {
 			return err
 		}
-		defer rc.Close()
+		if err := c.extractForPackage(r, p, f.Name, f.FileInfo(), rc); err != nil {
+			return err
+		}
+		rc.Close()
+	}
+	return nil
+}
 
-		b, err := ioutil.ReadAll(rc)
+func (c *Config) extractForPackage(r Recipe, p *Package, filename string, fileInfo os.FileInfo, rdr io.Reader) error {
+	if utils.ShouldExtractLibrary(filename, r.LibraryPaths) {
+		logging.DebugLog("%s: should attempt to write library\n", filename)
+		b, err := ioutil.ReadAll(rdr)
+		if err != nil {
+			return err
+		}
+		if err := c.WriteLibrary(p, utils.NormalizePath(filename, r.LibraryPaths), fileInfo.IsDir(), fileInfo.Mode(), b); err != nil {
+			return err
+		}
+	}
+	if utils.ShouldExtract(filename, r.ExtractPaths) {
+		logging.DebugLog("%s: should attempt to extract\n", filename)
+		b, err := ioutil.ReadAll(rdr)
 		if err != nil {
 			return err
 		}
 		isExec := utils.IsExecutable(bytes.NewReader(b))
-		if !isExec {
-			continue
-		}
-		fi := f.FileInfo()
-		if err := c.WritePackage(p, fi.Name(), fi.Mode(), b); err != nil {
-			return err
+		if isExec {
+			if err := c.WritePackage(p, fileInfo.Name(), fileInfo.Mode(), b); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -684,47 +718,86 @@ func (c *Config) populateCurrentlyInstalled() error {
 	if len(c.Packages) == 0 {
 		return fmt.Errorf("no installed packages")
 	}
-
-	dir := c.OutputDir
-	logging.PrintCommand("readdir %s", dir)
-	// TODO: Move this somewhere better.
-	if dir == "" {
-		return fmt.Errorf("no 'dir' set in config file")
-	}
-
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-
-	installs := make([]Installed, 0, len(files))
-	for _, f := range files {
-		if f.Mode()&os.ModeSymlink != os.ModeSymlink {
-			continue
+	/*
+		// BROKEN
+		dir := c.OutputDir
+		logging.PrintCommand("readdir %s", dir)
+		// TODO: Move this somewhere better.
+		if dir == "" {
+			return fmt.Errorf("no 'dir' set in config file")
 		}
-		name := f.Name()
-		filePath := filepath.Join(dir, name)
-		logging.PrintCommand("readlink %s", filePath)
-		symlink, err := os.Readlink(filePath)
+
+		files, err := ioutil.ReadDir(dir)
 		if err != nil {
 			return err
 		}
-		// TODO: Is there a better way to do this, need to check if the path
-		// the symlink is pointing to one "managed" by pacm.
-		if !strings.Contains(symlink, filepath.Join(c.OutputDir, "_pacm")) {
-			continue
+
+		installs := make([]Installed, 0, len(files))
+		for _, f := range files {
+			if f.IsDir() {
+				name := f.Name()
+				packageDir := filepath.Join(dir, name)
+				// TODO: Is there a better way to do this, need to check if the path
+				// the symlink is pointing to one "managed" by pacm.
+				if !strings.Contains(packageDir, filepath.Join(c.OutputDir, "_pacm")) {
+					continue
+				}
+				abs, err := filepath.Abs(filepath.Join(packageDir, name))
+				if err != nil {
+					return err
+				}
+				packageFiles, err := ioutil.ReadDir(packageDir)
+				if err != nil {
+					return err
+				}
+
+				var symlink string
+				var filename string
+				for _, pf := range packageFiles {
+					if pf.Mode()&os.ModeSymlink != os.ModeSymlink {
+						filename = abs + "/" + name
+						logging.PrintCommand("readlink %s", filename)
+						var err error
+						symlink, err = os.Readlink(filename)
+						if err != nil {
+							return err
+						}
+					}
+				}
+
+				installs = append(installs, Installed{
+					Filename:            abs + "/" + name,
+					AbsolutePath:        abs,
+					SymlinkAbsolutePath: symlink,
+					ModTime:             f.ModTime(),
+				})
+			} else if f.Mode()&os.ModeSymlink != os.ModeSymlink {
+				// TODO: remove, keeping for backwards compatibility
+				name := f.Name()
+				filePath := filepath.Join(dir, name)
+				logging.PrintCommand("readlink %s", filePath)
+				symlink, err := os.Readlink(filePath)
+				if err != nil {
+					return err
+				}
+				// TODO: Is there a better way to do this, need to check if the path
+				// the symlink is pointing to one "managed" by pacm.
+				if !strings.Contains(symlink, filepath.Join(c.OutputDir, "_pacm")) {
+					continue
+				}
+				abs, err := filepath.Abs(filepath.Join(dir, name))
+				if err != nil {
+					return err
+				}
+				installs = append(installs, Installed{
+					Filename:            name,
+					AbsolutePath:        abs,
+					SymlinkAbsolutePath: symlink,
+					ModTime:             f.ModTime(),
+				})
+			}
 		}
-		abs, err := filepath.Abs(filepath.Join(dir, name))
-		if err != nil {
-			return err
-		}
-		installs = append(installs, Installed{
-			Filename:            name,
-			AbsolutePath:        abs,
-			SymlinkAbsolutePath: symlink,
-			ModTime:             f.ModTime(),
-		})
-	}
-	c.CurrentlyInstalled = installs
+		c.CurrentlyInstalled = installs
+	*/
 	return nil
 }
