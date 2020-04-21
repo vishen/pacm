@@ -142,6 +142,11 @@ func (c *Config) downloadRemoteRecipes(shouldDownload bool) error {
 	if err != nil {
 		return err
 	}
+
+	if _, err := os.Stat(dir); err != nil {
+		shouldDownload = true
+	}
+
 	logging.PrintCommand("mkdirall %s 0755", dir)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -169,6 +174,10 @@ func (c *Config) downloadRemoteRecipes(shouldDownload bool) error {
 			if err := client.Get(); err != nil {
 				return err
 			}
+		}
+		logging.PrintCommand("mkdirall %s 0755", remoteFolder)
+		if err := os.MkdirAll(remoteFolder, 0755); err != nil {
+			return err
 		}
 		if err := c.handleRecipeFiles(remoteFolder); err != nil {
 			return err
