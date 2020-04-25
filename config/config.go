@@ -35,11 +35,6 @@ const (
 var cache *pacmcache.Cache
 
 func init() {
-	var err error
-	cache, err = pacmcache.LoadCache()
-	if err != nil {
-		log.Fatalf("unable to load cache: %v", err)
-	}
 }
 
 type Installed struct {
@@ -54,6 +49,7 @@ type Config struct {
 	filename string
 
 	OutputDir string
+	CacheDir  string
 
 	Recipes  []Recipe
 	Packages []*Package
@@ -96,12 +92,22 @@ func load(path string, downloadResources bool) (*Config, error) {
 		Packages: []*Package{},
 	}
 
-	// NOTE: This needs to go before the parsing of the config
-	// file since it will add recipes etc that can be overwritten.
+	// Only parse global configurations. This is required to get
+	// the cache path from the config (if it exists), but don't parse
+	// the packages so we can parse them later so that they overwrite
+	// anything found in remote recipes.
+	// TODO: THIS IS A LARGE HACK
+	if err := config.parseIniFile(config.iniFile, false); err != nil {
+		return nil, err
+	}
 	if err := config.downloadRemoteRecipes(downloadResources); err != nil {
 		return nil, err
 	}
-	if err := config.parseIniFile(config.iniFile); err != nil {
+	cache, err = pacmcache.LoadCache(config.CacheDir)
+	if err != nil {
+		log.Fatalf("unable to load cache: %v", err)
+	}
+	if err := config.parseIniFile(config.iniFile, true); err != nil {
 		return nil, err
 	}
 	if err := config.populateCurrentlyInstalled(); err != nil {
@@ -113,7 +119,7 @@ func load(path string, downloadResources bool) (*Config, error) {
 	return config, nil
 }
 
-func (c *Config) parseIniFile(f *ini.File) error {
+func (c *Config) parseIniFile(f *ini.File, parsePackages bool) error {
 	for _, s := range f.AllSections() {
 		n := s.Name()
 		switch {
@@ -129,8 +135,10 @@ func (c *Config) parseIniFile(f *ini.File) error {
 		case strings.HasPrefix(n, "checksum "):
 			// TODO: Handle checksums
 		default:
-			if err := c.handlePackage(s); err != nil {
-				return err
+			if parsePackages {
+				if err := c.handlePackage(s); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -138,7 +146,8 @@ func (c *Config) parseIniFile(f *ini.File) error {
 }
 
 func (c *Config) downloadRemoteRecipes(shouldDownload bool) error {
-	dir, err := homedir.Expand("~/.config/pacm/remote_recipes")
+	path := filepath.Join(c.CacheDir, "remote_recipes")
+	dir, err := homedir.Expand(path)
 	if err != nil {
 		return err
 	}
@@ -169,6 +178,12 @@ func (c *Config) downloadRemoteRecipes(shouldDownload bool) error {
 			if err := client.Get(); err != nil {
 				return err
 			}
+		} else {
+			logging.PrintCommand("mkdirall %s 0755", remoteFolder)
+			if err := os.MkdirAll(remoteFolder, 0755); err != nil {
+				return err
+			}
+
 		}
 		if err := c.handleRecipeFiles(remoteFolder); err != nil {
 			return err
@@ -206,7 +221,7 @@ func (c *Config) handleRecipeFiles(folder string) error {
 			if err != nil {
 				return err
 			}
-			if err := c.parseIniFile(f); err != nil {
+			if err := c.parseIniFile(f, true); err != nil {
 				return err
 			}
 		}
@@ -221,6 +236,8 @@ func (c *Config) handleGlobal(section *parser.Section) error {
 		switch k {
 		case "dir":
 			c.OutputDir = v
+		case "cache":
+			c.CacheDir = v
 		default:
 			return fmt.Errorf("unexpected key %q in global section", k)
 		}

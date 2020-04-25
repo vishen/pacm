@@ -17,8 +17,10 @@ exec ./bin/terraform version
 stdout 'Terraform v0.11.13'
 
 -- bin/.empty --
+-- cache/.empty --
 -- pacmconfig --
 dir=./bin
+cache=./cache
 [terraform@0.12.0]
 	active=true
 [terraform@0.11.13]

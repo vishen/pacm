@@ -12,14 +12,17 @@ import (
 	"github.com/vishen/pacm/logging"
 )
 
-const cachePath = "~/.config/pacm/cache"
+const defaultCachePath = "~/.config/pacm/cache"
 
 type Cache struct {
 	path     string
 	Archives map[string]bool
 }
 
-func LoadCache() (*Cache, error) {
+func LoadCache(cachePath string) (*Cache, error) {
+	if cachePath == "" {
+		cachePath = defaultCachePath
+	}
 	cp, err := homedir.Expand(cachePath)
 	if err != nil {
 		return nil, err
